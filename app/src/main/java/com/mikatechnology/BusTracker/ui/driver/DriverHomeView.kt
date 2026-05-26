@@ -1,0 +1,317 @@
+package com.mikatechnology.BusTracker.ui.driver
+
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mikatechnology.BusTracker.base.BaseViewShell
+import com.mikatechnology.BusTracker.data.model.MemberRole
+import com.mikatechnology.BusTracker.data.model.UserProfile
+import com.mikatechnology.BusTracker.data.repository.ShuttleStore
+import com.mikatechnology.BusTracker.services.LocationTracker
+import com.mikatechnology.BusTracker.ui.map.resolveDriverMapLocation
+import com.mikatechnology.BusTracker.ui.theme.NeonTheme
+
+@Composable
+fun DriverHomeView(
+    profile: UserProfile,
+    modifier: Modifier = Modifier,
+    viewModel: DriverHomeViewModel = viewModel(
+        key = "driver_home_${profile.userID}",
+        factory = DriverHomeViewModelFactory(profile)
+    ),
+    tabController: DriverTabBarController = viewModel()
+) {
+    val context = LocalContext.current
+    val selectedTab by tabController.selectedTab.collectAsStateWithLifecycle()
+
+    val members by ShuttleStore.shared.members.collectAsStateWithLifecycle()
+    val isTripActive by ShuttleStore.shared.isTripActive.collectAsStateWithLifecycle()
+    val driverLocation by ShuttleStore.shared.driverLocation.collectAsStateWithLifecycle()
+    val deviceLocation by LocationTracker.currentLocation.collectAsStateWithLifecycle()
+    val morningPickups by ShuttleStore.shared.morningPickups.collectAsStateWithLifecycle()
+    val locationAuthStatus by LocationTracker.authorizationStatus.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val passengers = members.filter { it.role == MemberRole.Passenger }
+    val stats = viewModel.passengerStats(members)
+    val filteredPickups = viewModel.passengerMorningPickups(passengers, morningPickups)
+    val mapDriverLocation = resolveDriverMapLocation(
+        firestoreLocation = driverLocation,
+        deviceLocation = deviceLocation ?: LocationTracker.effectiveLocation,
+        driverName = profile.name
+    )
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        LocationTracker.refreshAuthorizationStatus(context)
+        if (LocationTracker.hasFineLocation(context)) {
+            LocationTracker.requestSingleLocation(context)
+        }
+    }
+
+    val backgroundPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        LocationTracker.refreshAuthorizationStatus(context)
+    }
+
+    LaunchedEffect(profile.groupID) {
+        LocationTracker.initialize(context)
+        viewModel.onAppear(profile.groupID)
+        if (!LocationTracker.hasFineLocation(context)) {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        } else {
+            LocationTracker.refreshAuthorizationStatus(context)
+            LocationTracker.requestSingleLocation(context)
+        }
+    }
+
+    BaseViewShell(viewModel = viewModel, modifier = modifier) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (selectedTab != DriverHomeTab.Map) {
+                DriverTopBar(isTripActive = isTripActive)
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                when (selectedTab) {
+                    DriverHomeTab.Passengers -> DriverPassengersTab(
+                        profile = viewModel.userProfile,
+                        passengers = passengers,
+                        stats = stats,
+                        isTripActive = isTripActive,
+                        isTripBusy = uiState.isLoading,
+                        locationAuthStatus = locationAuthStatus,
+                        onToggleTrip = {
+                            if (
+                                !isTripActive &&
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                                locationAuthStatus.needsAlwaysAuthorization
+                            ) {
+                                backgroundPermissionLauncher.launch(
+                                    Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                                )
+                            }
+                            viewModel.toggleTrip(context)
+                        },
+                        onCopyCode = {
+                            viewModel.copyGroupCode(context, viewModel.userProfile.groupCode)
+                        }
+                    )
+
+                    DriverHomeTab.Map -> {
+                        key("driver_map_tab") {
+                            DriverMapTabView(
+                                driverLocation = mapDriverLocation,
+                                morningPickups = filteredPickups,
+                                stats = stats,
+                                isTripActive = isTripActive
+                            )
+                        }
+                    }
+
+                    DriverHomeTab.Settings -> DriverSettingsTab(
+                        profile = viewModel.userProfile,
+                        onCopyCode = {
+                            viewModel.copyGroupCode(context, viewModel.userProfile.groupCode)
+                        },
+                        onSignOut = {
+                            viewModel.requestSignOut {
+                                viewModel.signOut(context)
+                            }
+                        }
+                    )
+                }
+            }
+
+            DriverTabBar(
+                selectedTab = selectedTab,
+                onTabSelected = tabController::select
+            )
+        }
+    }
+}
+
+@Composable
+private fun DriverTopBar(isTripActive: Boolean) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .background(NeonTheme.Background.copy(alpha = 0.95f))
+                .padding(horizontal = 24.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Dashboard,
+                contentDescription = null,
+                tint = NeonTheme.OnSurface,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            if (isTripActive) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(NeonTheme.Secondary)
+                            .shadow(4.dp, spotColor = NeonTheme.Secondary.copy(alpha = 0.8f))
+                    )
+                    Text(
+                        text = "AKTİF",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp,
+                        color = NeonTheme.Secondary
+                    )
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .shadow(6.dp, spotColor = NeonTheme.Primary.copy(alpha = 0.1f))
+                .background(NeonTheme.Primary.copy(alpha = 0.3f))
+        )
+    }
+}
+
+@Composable
+fun DriverSettingsTab(
+    profile: UserProfile,
+    onCopyCode: () -> Unit,
+    onSignOut: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        DriverSettingsRow(
+            title = "Servis Kodu",
+            value = profile.groupCode,
+            onClick = onCopyCode
+        )
+        DriverSettingsRow(
+            title = "Adınız",
+            value = profile.name,
+            onClick = null
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onSignOut)
+                .background(NeonTheme.SurfaceContainer)
+                .border(1.dp, NeonTheme.Error.copy(alpha = 0.3f))
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.Logout,
+                contentDescription = null,
+                tint = NeonTheme.Error
+            )
+            Text(
+                text = "Çıkış Yap",
+                fontWeight = FontWeight.SemiBold,
+                color = NeonTheme.Error,
+                modifier = Modifier.padding(start = 12.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DriverSettingsRow(
+    title: String,
+    value: String,
+    onClick: (() -> Unit)?
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .background(NeonTheme.SurfaceContainer)
+            .border(1.dp, NeonTheme.Outline.copy(alpha = 0.3f))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title.uppercase(),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 1.5.sp,
+                color = NeonTheme.OnSurfaceVariant
+            )
+            Text(
+                text = value,
+                fontWeight = FontWeight.SemiBold,
+                color = NeonTheme.OnSurface,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+        if (onClick != null) {
+            Icon(
+                imageVector = Icons.Default.ContentCopy,
+                contentDescription = null,
+                tint = NeonTheme.Secondary
+            )
+        }
+    }
+}

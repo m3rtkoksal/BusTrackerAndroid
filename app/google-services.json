@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "851737532018",
+    "project_id": "bustracker-717a3",
+    "storage_bucket": "bustracker-717a3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:851737532018:android:b1134e0cad566edd59d4eb",
+        "android_client_info": {
+          "package_name": "com.mikatechnology.BusTracker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "851737532018-crjnv0vcpacu575cj8cvm0v0sv7trp2b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD9f9DmuYse87gmBTwCARM4jFgZULZE8eo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "851737532018-crjnv0vcpacu575cj8cvm0v0sv7trp2b.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "851737532018-6u9dcmu4hjfhrc165l10q7f9fgv944vt.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mikatechnology.BusTracker"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
