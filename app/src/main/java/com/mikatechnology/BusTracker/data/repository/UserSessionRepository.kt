@@ -21,11 +21,25 @@ object UserSessionRepository {
     private val _profile = MutableStateFlow<UserProfile?>(null)
     val profile: StateFlow<UserProfile?> = _profile.asStateFlow()
 
+    private val _isSessionLoaded = MutableStateFlow(false)
+    val isSessionLoaded: StateFlow<Boolean> = _isSessionLoaded.asStateFlow()
+
     fun load(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val userID = prefs.getString(KEY_USER_ID, null) ?: return
-        val roleRaw = prefs.getString(KEY_ROLE, null) ?: return
-        val role = MemberRole.entries.firstOrNull { it.rawValue == roleRaw } ?: return
+        val userID = prefs.getString(KEY_USER_ID, null)
+        val roleRaw = prefs.getString(KEY_ROLE, null)
+
+        if (userID == null || roleRaw == null) {
+            _isSessionLoaded.value = true
+            _profile.value = null
+            return
+        }
+
+        val role = MemberRole.entries.firstOrNull { it.rawValue == roleRaw } ?: run {
+            _isSessionLoaded.value = true
+            _profile.value = null
+            return
+        }
 
         _profile.value = UserProfile(
             userID = userID,
@@ -37,6 +51,8 @@ object UserSessionRepository {
             groupCode = prefs.getString(KEY_GROUP_CODE, "") ?: "",
             groupName = prefs.getString(KEY_GROUP_NAME, "") ?: ""
         )
+
+        _isSessionLoaded.value = true
     }
 
     fun save(context: Context, profile: UserProfile) {
@@ -56,6 +72,7 @@ object UserSessionRepository {
 
     fun clear(context: Context) {
         _profile.value = null
+        _isSessionLoaded.value = false
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()

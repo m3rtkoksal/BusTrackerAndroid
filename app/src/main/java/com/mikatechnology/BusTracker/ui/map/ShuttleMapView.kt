@@ -2,12 +2,19 @@ package com.mikatechnology.BusTracker.ui.map
 
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +40,7 @@ import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapType
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerComposable
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.mikatechnology.BusTracker.BuildConfig
@@ -49,10 +57,11 @@ fun ShuttleMapView(
     driverLocation: DriverLocation?,
     morningPickups: List<MorningPickup>,
     modifier: Modifier = Modifier,
-    onCameraReady: (ShuttleMapCamera) -> Unit = {}
+    onCameraReady: (ShuttleMapCamera) -> Unit = {},
+    onMapClick: ((LatLng) -> Unit)? = null,
+    selectedCoordinate: LatLng? = null,
+    selectedCoordinateTitle: String = "Seçilen Biniş Noktası"
 ) {
-    val context = LocalContext.current
-
     if (BuildConfig.MAPS_API_KEY.isBlank()) {
         MapApiKeyMissingBanner(modifier = modifier)
         return
@@ -63,7 +72,6 @@ fun ShuttleMapView(
     }
 
     var isMapLoaded by remember { mutableStateOf(false) }
-    var showTileHelp by remember { mutableStateOf(false) }
 
     val camera = remember(cameraPositionState) {
         ShuttleMapCamera(
@@ -77,16 +85,7 @@ fun ShuttleMapView(
         onCameraReady(camera)
     }
 
-    LaunchedEffect(isMapLoaded) {
-        if (!isMapLoaded) {
-            delay(4_000)
-            if (!isMapLoaded) {
-                showTileHelp = true
-            }
-        } else {
-            showTileHelp = false
-        }
-    }
+
 
     LaunchedEffect(isMapLoaded, driverLocation?.updatedAt, morningPickups.size) {
         if (!isMapLoaded) return@LaunchedEffect
@@ -114,9 +113,9 @@ fun ShuttleMapView(
             ),
             onMapLoaded = {
                 isMapLoaded = true
-                showTileHelp = false
                 Log.d(TAG, "Map loaded")
-            }
+            },
+            onMapClick = onMapClick
         ) {
             MapEffect(driverLocation, morningPickups) { map ->
                 map.setOnMapLoadedCallback {
@@ -125,27 +124,32 @@ fun ShuttleMapView(
             }
 
             driverLocation?.let { location ->
-                Marker(
+                // Custom driver marker - matches iOS "location.north.fill" arrow style with neon glow
+                MarkerComposable(
                     state = MarkerState(LatLng(location.latitude, location.longitude)),
-                    title = location.driverName
-                )
+                    title = location.driverName,
+                    snippet = "Sürücü"
+                ) {
+                    DriverMarkerView(driverName = location.driverName)
+                }
             }
 
             morningPickups.forEach { pickup ->
                 Marker(
                     state = MarkerState(LatLng(pickup.latitude, pickup.longitude)),
-                    title = pickup.name
+                    title = pickup.name,
+                    snippet = "Kayıtlı biniş"
                 )
             }
-        }
 
-        if (showTileHelp && BuildConfig.DEBUG) {
-            MapTilesHelpBanner(
-                sha1 = appSigningSha1(context),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+            // Draft / currently selected coordinate (for passenger choosing pickup point)
+            selectedCoordinate?.let { coord ->
+                Marker(
+                    state = MarkerState(coord),
+                    title = selectedCoordinateTitle,
+                    snippet = "Dokunarak değiştir"
+                )
+            }
         }
     }
 }
@@ -169,48 +173,7 @@ private fun MapApiKeyMissingBanner(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-private fun MapTilesHelpBanner(
-    sha1: String?,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .heightIn(max = 140.dp)
-            .fillMaxWidth()
-            .background(NeonTheme.SurfaceContainer.copy(alpha = 0.95f))
-            .padding(10.dp)
-    ) {
-        Text(
-            text = "Harita karoları yüklenmiyorsa Google Cloud'da:",
-            color = NeonTheme.OnSurface,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = "1) Maps SDK for Android etkin\n2) Faturalandırma açık\n3) API key → Android apps\n   Paket: com.mikatechnology.BusTracker",
-            color = NeonTheme.OnSurfaceVariant,
-            fontSize = 10.sp,
-            modifier = Modifier.padding(top = 4.dp)
-        )
-        sha1?.let {
-            val sha1NoColons = formatSha1ForConsole(it)
-            Text(
-                text = "SHA-1 (iki formattan birini dene):\n$it\nveya\n$sha1NoColons",
-                color = NeonTheme.Secondary,
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace,
-                modifier = Modifier.padding(top = 6.dp)
-            )
-            Text(
-                text = "Cloud \"Invalid\" derse Android Studio → Gradle → signingReport SHA1 satırını kopyala.",
-                color = NeonTheme.OnSurfaceVariant,
-                fontSize = 9.sp,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-    }
-}
+
 
 class ShuttleMapCamera(
     private val cameraPositionState: com.google.maps.android.compose.CameraPositionState,
@@ -264,5 +227,51 @@ class ShuttleMapCamera(
         } else {
             cameraPositionState.move(update)
         }
+    }
+}
+
+/**
+ * Custom driver location marker that mimics the iOS style:
+ * Large glowing circle + directional arrow (instead of default pin).
+ */
+@Composable
+fun DriverMarkerView(driverName: String) {
+    Box(
+        modifier = Modifier.size(56.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Outer glow
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(NeonTheme.Secondary.copy(alpha = 0.15f))
+        )
+
+        // Ring
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .border(
+                    width = 1.dp,
+                    color = NeonTheme.Secondary.copy(alpha = 0.35f),
+                    shape = CircleShape
+                )
+        )
+
+        // Directional arrow (this is what the user sees as "ok" / arrow on iOS)
+        Icon(
+            imageVector = Icons.Filled.Navigation,
+            contentDescription = null,
+            tint = NeonTheme.Secondary,
+            modifier = Modifier
+                .size(28.dp)
+                .shadow(
+                    elevation = 8.dp,
+                    spotColor = NeonTheme.Secondary.copy(alpha = 0.8f),
+                    ambientColor = NeonTheme.Secondary.copy(alpha = 0.4f)
+                )
+        )
     }
 }

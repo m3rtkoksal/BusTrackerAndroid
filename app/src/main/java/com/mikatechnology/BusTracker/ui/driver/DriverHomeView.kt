@@ -30,6 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +49,7 @@ import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.ui.map.resolveDriverMapLocation
+import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
 @Composable
@@ -60,6 +64,7 @@ fun DriverHomeView(
 ) {
     val context = LocalContext.current
     val selectedTab by tabController.selectedTab.collectAsStateWithLifecycle()
+    var showMyServices by remember { mutableStateOf(false) }
 
     val members by ShuttleStore.shared.members.collectAsStateWithLifecycle()
     val isTripActive by ShuttleStore.shared.isTripActive.collectAsStateWithLifecycle()
@@ -110,76 +115,88 @@ fun DriverHomeView(
     }
 
     BaseViewShell(viewModel = viewModel, modifier = modifier) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (selectedTab != DriverHomeTab.Map) {
-                DriverTopBar(isTripActive = isTripActive)
-            }
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                when (selectedTab) {
-                    DriverHomeTab.Passengers -> DriverPassengersTab(
-                        profile = viewModel.userProfile,
-                        passengers = passengers,
-                        stats = stats,
+        if (showMyServices) {
+            MyServicesScreen(
+                onBack = { showMyServices = false }
+            )
+        } else {
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (selectedTab != DriverHomeTab.Map) {
+                    DriverTopBar(
                         isTripActive = isTripActive,
-                        isTripBusy = uiState.isLoading,
-                        locationAuthStatus = locationAuthStatus,
-                        onToggleTrip = {
-                            if (
-                                !isTripActive &&
-                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                                locationAuthStatus.needsAlwaysAuthorization
-                            ) {
-                                backgroundPermissionLauncher.launch(
-                                    Manifest.permission.ACCESS_BACKGROUND_LOCATION
-                                )
-                            }
-                            viewModel.toggleTrip(context)
-                        },
-                        onCopyCode = {
-                            viewModel.copyGroupCode(context, viewModel.userProfile.groupCode)
-                        }
-                    )
-
-                    DriverHomeTab.Map -> {
-                        key("driver_map_tab") {
-                            DriverMapTabView(
-                                driverLocation = mapDriverLocation,
-                                morningPickups = filteredPickups,
-                                stats = stats,
-                                isTripActive = isTripActive
-                            )
-                        }
-                    }
-
-                    DriverHomeTab.Settings -> DriverSettingsTab(
-                        profile = viewModel.userProfile,
-                        onCopyCode = {
-                            viewModel.copyGroupCode(context, viewModel.userProfile.groupCode)
-                        },
-                        onSignOut = {
-                            viewModel.requestSignOut {
-                                viewModel.signOut(context)
-                            }
-                        }
+                        onMenuClick = { showMyServices = true }
                     )
                 }
-            }
 
-            DriverTabBar(
-                selectedTab = selectedTab,
-                onTabSelected = tabController::select
-            )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    when (selectedTab) {
+                        DriverHomeTab.Passengers -> DriverPassengersTab(
+                            profile = viewModel.userProfile,
+                            passengers = passengers,
+                            stats = stats,
+                            isTripActive = isTripActive,
+                            isTripBusy = uiState.isLoading,
+                            locationAuthStatus = locationAuthStatus,
+                            onToggleTrip = {
+                                if (
+                                    !isTripActive &&
+                                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                                    locationAuthStatus.needsAlwaysAuthorization
+                                ) {
+                                    backgroundPermissionLauncher.launch(
+                                        Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                                    )
+                                }
+                                viewModel.toggleTrip(context)
+                            },
+                            onCopyCode = {
+                                viewModel.copyGroupCode(context, viewModel.userProfile.groupCode)
+                            }
+                        )
+
+                        DriverHomeTab.Map -> {
+                            key("driver_map_tab") {
+                                DriverMapTabView(
+                                    driverLocation = mapDriverLocation,
+                                    morningPickups = filteredPickups,
+                                    stats = stats,
+                                    isTripActive = isTripActive
+                                )
+                            }
+                        }
+
+                        DriverHomeTab.Settings -> DriverSettingsTab(
+                            profile = viewModel.userProfile,
+                            onCopyCode = {
+                                viewModel.copyGroupCode(context, viewModel.userProfile.groupCode)
+                            },
+                            onSignOut = {
+                                viewModel.requestSignOut {
+                                    viewModel.signOut(context)
+                                }
+                            }
+                        )
+                    }
+                }
+
+                DriverTabBar(
+                    selectedTab = selectedTab,
+                    onTabSelected = tabController::select
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun DriverTopBar(isTripActive: Boolean) {
+private fun DriverTopBar(
+    isTripActive: Boolean,
+    onMenuClick: () -> Unit = {}
+) {
     Column {
         Row(
             modifier = Modifier
@@ -191,9 +208,11 @@ private fun DriverTopBar(isTripActive: Boolean) {
         ) {
             Icon(
                 imageVector = Icons.Default.Dashboard,
-                contentDescription = null,
+                contentDescription = "Menü",
                 tint = NeonTheme.OnSurface,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier
+                    .size(22.dp)
+                    .clickable { onMenuClick() }
             )
             Spacer(modifier = Modifier.weight(1f))
             if (isTripActive) {

@@ -149,4 +149,17 @@ object LocationTracker {
             Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
     }
+
+    /**
+     * Convenience for passengers who only need when-in-use permission
+     * (to show their own location on the map).
+     */
+    fun requestWhenInUse(context: Context) {
+        // In a real implementation this would trigger a permission request.
+        // For now we just refresh status (DriverHomeView already has the launcher pattern).
+        refreshAuthorizationStatus(context)
+        if (hasFineLocation(context)) {
+            requestSingleLocation(context)
+        }
+    }
 }

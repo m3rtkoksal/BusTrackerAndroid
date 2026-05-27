@@ -9,8 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Login
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -24,41 +23,30 @@ import androidx.compose.foundation.background
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mikatechnology.BusTracker.base.BaseViewShell
-import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
-import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegistrationFormScreen(
-    role: MemberRole,
-    onBack: () -> Unit,
+fun LoginScreen(
+    onBackToRegister: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: RegistrationFormViewModel = viewModel(
-        key = "registration_${role.name}",
-        factory = RegistrationFormViewModelFactory(role)
-    )
+    viewModel: LoginViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val activity = context as? android.app.Activity
 
     val phone by viewModel.phone.collectAsStateWithLifecycle()
-    val name by viewModel.name.collectAsStateWithLifecycle()
-    val serviceField by viewModel.serviceField.collectAsStateWithLifecycle()
     val otpCode by viewModel.otpCode.collectAsStateWithLifecycle()
-    val showOTP by viewModel.showOTPVerification.collectAsStateWithLifecycle()
-    val authLoading by AuthRepository.isLoading.collectAsStateWithLifecycle()
-    val shuttleLoading by ShuttleRepository.shared.isLoading.collectAsStateWithLifecycle()
-    val isBusy = authLoading || shuttleLoading
+    val showOTP by viewModel.showOTP.collectAsStateWithLifecycle()
+    val isLoading by AuthRepository.isLoading.collectAsStateWithLifecycle()
 
-    val heroIcon = if (role == MemberRole.Driver) Icons.Default.DirectionsCar else Icons.Default.Person
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     if (showOTP) {
         ModalBottomSheet(
             onDismissRequest = {
-                if (!isBusy) viewModel.dismissOTP()
+                if (!isLoading) viewModel.dismissOTP()
             },
             sheetState = sheetState,
             containerColor = NeonTheme.SurfaceContainerLow.copy(alpha = 0.98f),
@@ -78,10 +66,10 @@ fun RegistrationFormScreen(
                 formattedPhone = viewModel.formattedPhone,
                 otpCode = otpCode,
                 onOtpChange = viewModel::onOtpChange,
-                isLoading = isBusy,
-                onSubmit = { viewModel.verifyAndCreateAccount(context) },
-                onResend = { activity?.let(viewModel::beginAccountCreation) },
-                buttonText = "ONAYLA VE OLUŞTUR",
+                isLoading = isLoading,
+                onSubmit = { viewModel.verifyLogin(context) },
+                onResend = { activity?.let(viewModel::sendLoginOTP) },
+                buttonText = "ONAYLA",
                 modifier = Modifier.navigationBarsPadding()
             )
         }
@@ -96,54 +84,45 @@ fun RegistrationFormScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             NeonRegistrationHero(
-                icon = heroIcon,
-                title = viewModel.heroTitle,
-                subtitle = viewModel.heroSubtitle,
-                accent = viewModel.accent
+                icon = Icons.Default.Login,
+                title = "Giriş Yap",
+                subtitle = "Mevcut hesabınıza telefon numaranızla giriş yapın.",
+                accent = NeonTheme.Secondary
             )
 
-            NeonGlassCard(accent = viewModel.accent) {
+            NeonGlassCard(accent = NeonTheme.Secondary) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    NeonFormField(
-                        title = "Adınız",
-                        value = name,
-                        onValueChange = viewModel::onNameChange,
-                        placeholder = viewModel.namePrompt
-                    )
                     NeonPhoneFormField(
                         title = "Telefon",
                         value = phone,
                         onValueChange = viewModel::onPhoneChange
                     )
-                    NeonFormField(
-                        title = viewModel.serviceFieldTitle,
-                        value = serviceField,
-                        onValueChange = viewModel::onServiceFieldChange,
-                        placeholder = viewModel.serviceFieldPrompt
-                    )
 
                     androidx.compose.material3.Text(
-                        text = viewModel.footerCaption,
+                        text = "Hesabınız varsa doğrulama kodu ile giriş yapabilirsiniz.",
                         style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
                         color = NeonTheme.OnSurfaceVariant
                     )
 
                     NeonPrimaryButton(
-                        text = "HESABI OLUŞTUR",
+                        text = "GİRİŞ YAP",
                         onClick = {
-                            activity?.let(viewModel::beginAccountCreation)
+                            activity?.let(viewModel::sendLoginOTP)
                         },
                         enabled = viewModel.canSubmit && activity != null,
-                        loading = isBusy,
-                        accent = viewModel.accent
+                        loading = isLoading,
+                        accent = NeonTheme.Secondary
                     )
                 }
             }
 
-            RegistrationBackButton(onClick = onBack)
+            RegistrationBackButton(
+                text = "Hesap oluşturmaya dön",
+                onClick = onBackToRegister
+            )
         }
     }
 }

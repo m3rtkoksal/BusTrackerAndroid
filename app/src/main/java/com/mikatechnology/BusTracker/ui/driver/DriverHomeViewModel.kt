@@ -47,7 +47,7 @@ class DriverHomeViewModel(
     fun passengerStats(members: List<ShuttleMember>): DriverPassengerStats {
         val passengers = members.filter { it.role == MemberRole.Passenger }
         return DriverPassengerStats(
-            total = passengers.size,
+            total = 15, // Sabit maksimum kapasite
             coming = passengers.count { it.attendance == AttendanceStatus.Coming },
             notComing = passengers.count { it.attendance == AttendanceStatus.NotComing },
             unknown = passengers.count { it.attendance == AttendanceStatus.Unknown }
@@ -59,7 +59,12 @@ class DriverHomeViewModel(
         morningPickups: List<MorningPickup>
     ): List<MorningPickup> {
         val passengerIDs = passengers.map { it.id }.toSet()
-        return morningPickups.filter { it.memberID in passengerIDs }
+
+        return morningPickups.filter { pickup ->
+            // Sadece halen grupta olan ve GELİYORUM diyen yolcuların pin'ini göster
+            pickup.memberID in passengerIDs &&
+            passengers.find { it.id == pickup.memberID }?.attendance != AttendanceStatus.NotComing
+        }
     }
 
     fun requestSignOut(onConfirm: () -> Unit) {

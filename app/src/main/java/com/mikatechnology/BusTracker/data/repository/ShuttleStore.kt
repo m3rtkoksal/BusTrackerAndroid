@@ -1,6 +1,7 @@
 package com.mikatechnology.BusTracker.data.repository
 
 import android.location.Location
+import android.util.Log
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -39,6 +40,9 @@ class ShuttleStore private constructor() {
 
     private val _isTripActive = MutableStateFlow(false)
     val isTripActive: StateFlow<Boolean> = _isTripActive.asStateFlow()
+
+    private val _currentActiveTripGroupID = MutableStateFlow<String?>(null)
+    val currentActiveTripGroupID: StateFlow<String?> = _currentActiveTripGroupID.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
@@ -81,7 +85,9 @@ class ShuttleStore private constructor() {
                     return@addSnapshotListener
                 }
                 val data = snapshot?.data
-                _isTripActive.value = data?.get("isActive") as? Boolean ?: false
+                val isActiveFromDoc = data?.get("isActive") as? Boolean ?: false
+                _isTripActive.value = isActiveFromDoc
+                _currentActiveTripGroupID.value = if (isActiveFromDoc) groupID else null
                 _driverLocation.value = driverLocationFrom(snapshot)
             }
 
@@ -114,6 +120,7 @@ class ShuttleStore private constructor() {
         morningPickupsListener = null
         _morningPickups.value = emptyList()
         _isTripActive.value = false
+        _currentActiveTripGroupID.value = null
         activeTripGroupID = null
         activeTripDriverName = null
         lastLocationUploadAt = null
@@ -162,6 +169,7 @@ class ShuttleStore private constructor() {
             .await()
 
         _isTripActive.value = true
+        _currentActiveTripGroupID.value = groupID
         activeTripGroupID = groupID
         activeTripDriverName = driverName
         lastLocationUploadAt = null
@@ -183,6 +191,7 @@ class ShuttleStore private constructor() {
 
     suspend fun stopTrip(groupID: String, driverName: String) {
         _isTripActive.value = false
+        _currentActiveTripGroupID.value = null
         activeTripGroupID = null
         activeTripDriverName = null
         lastLocationUploadAt = null
@@ -357,6 +366,82 @@ class ShuttleStore private constructor() {
             isActive = isActive,
             driverName = driverName
         )
+    }
+
+    // MARK: - Passenger actions (ported from iOS)
+
+    fun morningPickup(forMemberID: String): MorningPickup? {
+        return _morningPickups.value.firstOrNull { it.memberID == forMemberID }
+    }
+
+    suspend fun setAttendance(
+        groupID: String,
+        memberID: String,
+        name: String,
+        status: AttendanceStatus
+    ) {
+        val ref = db.collection("groups").document(groupID)
+            .collection("attendance").document(todayKey)
+
+        // Ensure parent doc exists
+        ref.set(
+            mapOf("updatedAt" to FieldValue.serverTimestamp()),
+            com.google.firebase.firestore.SetOptions.merge()
+        ).await()
+
+        // Update the specific response
+        ref.update(
+            mapOf(
+                "responses.$memberID.status" to status.rawValue,
+                "responses.$memberID.name" to name,
+                "responses.$memberID.updatedAt" to FieldValue.serverTimestamp()
+            )
+        ).await()
+
+        // Optimistic local update so UI reacts immediately
+        val existing = latestAttendanceResponses[memberID]?.toMutableMap() ?: mutableMapOf()
+        existing["status"] = status.rawValue
+        existing["name"] = name
+        latestAttendanceResponses = latestAttendanceResponses + (memberID to existing)
+
+        applyAttendance(mapOf("responses" to latestAttendanceResponses))
+
+        // Yolcu "GELMİYORUM" seçerse, kendi biniş noktasını haritadan kaldır
+        if (status == AttendanceStatus.NotComing) {
+            try {
+                db.collection("groups").document(groupID)
+                    .collection("morningPickups").document(memberID)
+                    .delete()
+                    .await()
+            } catch (e: Exception) {
+                Log.e("ShuttleStore", "Failed to delete morningPickup for $memberID", e)
+            }
+
+            // Local state'ten hemen çıkar
+            _morningPickups.value = _morningPickups.value.filter { it.memberID != memberID }
+        }
+    }
+
+    suspend fun setMorningPickup(
+        groupID: String,
+        memberID: String,
+        name: String,
+        latitude: Double,
+        longitude: Double
+    ) {
+        db.collection("groups").document(groupID)
+            .collection("morningPickups").document(memberID)
+            .set(
+                mapOf(
+                    "memberID" to memberID,
+                    "name" to name,
+                    "latitude" to latitude,
+                    "longitude" to longitude,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            .await()
     }
 
     companion object {

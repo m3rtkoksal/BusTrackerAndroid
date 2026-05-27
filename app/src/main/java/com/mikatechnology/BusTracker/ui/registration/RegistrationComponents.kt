@@ -175,6 +175,7 @@ fun NeonRegistrationHero(
 
 @Composable
 fun RegistrationBackButton(
+    text: String = "ROL SEÇİMİNE DÖN",
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -193,7 +194,7 @@ fun RegistrationBackButton(
             modifier = Modifier.size(16.dp)
         )
         Text(
-            text = "ROL SEÇİMİNE DÖN",
+            text = text,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 2.sp,

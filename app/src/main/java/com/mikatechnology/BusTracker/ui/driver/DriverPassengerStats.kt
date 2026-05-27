@@ -1,7 +1,7 @@
 package com.mikatechnology.BusTracker.ui.driver
 
 data class DriverPassengerStats(
-    val total: Int,
+    val total: Int = 15,           // Maksimum kapasite (sabit 15)
     val coming: Int,
     val notComing: Int,
     val unknown: Int

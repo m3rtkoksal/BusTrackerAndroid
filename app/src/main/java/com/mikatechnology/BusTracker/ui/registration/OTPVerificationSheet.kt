@@ -52,6 +52,7 @@ fun OTPVerificationSheetContent(
     isLoading: Boolean,
     onSubmit: () -> Unit,
     onResend: () -> Unit,
+    buttonText: String = "ONAYLA VE OLUŞTUR",
     modifier: Modifier = Modifier
 ) {
     var resendCooldown by remember { mutableIntStateOf(34) }
@@ -130,6 +131,8 @@ fun OTPVerificationSheetContent(
                 code = otpCode,
                 onCodeChange = onOtpChange,
                 focusRequester = focusRequester,
+                onSubmit = onSubmit,
+                isLoading = isLoading,
                 modifier = Modifier.padding(bottom = 28.dp)
             )
 
@@ -154,7 +157,7 @@ fun OTPVerificationSheetContent(
                     )
                 } else {
                     Text(
-                        text = "ONAYLA VE OLUŞTUR",
+                        text = buttonText,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 1.5.sp,
@@ -188,13 +191,23 @@ private fun NeonOtpInput(
     code: String,
     onCodeChange: (String) -> Unit,
     focusRequester: FocusRequester,
+    onSubmit: (() -> Unit)? = null,
+    isLoading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val length = 6
 
     BasicTextField(
         value = code,
-        onValueChange = { onCodeChange(it.filter { char -> char.isDigit() }.take(length)) },
+        onValueChange = { newValue ->
+            val filtered = newValue.filter { char -> char.isDigit() }.take(length)
+            onCodeChange(filtered)
+
+            // Auto-submit when 6 digits are entered (matching iOS behavior)
+            if (filtered.length == length && !isLoading) {
+                onSubmit?.invoke()
+            }
+        },
         modifier = modifier.focusRequester(focusRequester),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
         cursorBrush = SolidColor(Color.Transparent),
