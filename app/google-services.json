@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "851737532018-cd5cc3efveqad4j59kdrcdq8memtc2uq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mikatechnology.BusTracker",
+            "certificate_hash": "583ea651dda3e357c2657a5000dccf7ae0b42c2e"
+          }
+        },
+        {
           "client_id": "851737532018-crjnv0vcpacu575cj8cvm0v0sv7trp2b.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -2,6 +2,8 @@ package com.mikatechnology.BusTracker.ui.passenger
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,9 +23,14 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,17 +44,16 @@ import com.google.android.gms.maps.model.LatLng
 import com.mikatechnology.BusTracker.data.model.DriverLocation
 import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.ui.map.NeonMapOverlay
+import com.mikatechnology.BusTracker.ui.map.ShuttleMapCamera
 import com.mikatechnology.BusTracker.ui.map.ShuttleMapView
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
+import java.text.SimpleDateFormat
+import java.util.Locale
+import kotlinx.coroutines.launch
 
-/**
- * Passenger map tab.
- * Currently re-uses ShuttleMapView (driver-focused). 
- * Full tap-to-select + custom neon markers (matching iOS PassengerLiveMap) 
- * should be added in a follow-up by extending ShuttleMapView or creating PassengerMapView.
- */
 @Composable
 fun PassengerMapTabView(
+    groupName: String,
     driverLocation: DriverLocation?,
     draftCoordinate: LatLng?,
     savedPickup: MorningPickup?,
@@ -54,25 +61,35 @@ fun PassengerMapTabView(
     isSaving: Boolean,
     onMapClick: (LatLng) -> Unit,
     onSavePickup: () -> Unit,
-    onZoomIn: () -> Unit,
-    onZoomOut: () -> Unit,
-    onFitAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var mapCamera by remember { mutableStateOf<ShuttleMapCamera?>(null) }
+    val scope = rememberCoroutineScope()
+
+    val morningPickupsForMap = remember(savedPickup) {
+        savedPickup?.let { listOf(it) } ?: emptyList()
+    }
+
+    LaunchedEffect(driverLocation?.updatedAt, savedPickup, draftCoordinate, mapCamera) {
+        mapCamera?.updateData(
+            driverLocation = driverLocation,
+            morningPickups = morningPickupsForMap,
+            extraCoordinates = listOfNotNull(draftCoordinate)
+        )
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
-        // Base map with tap support for selecting pickup point
         ShuttleMapView(
             driverLocation = driverLocation,
-            morningPickups = savedPickup?.let { listOf(it) } ?: emptyList(),
+            morningPickups = morningPickupsForMap,
             selectedCoordinate = draftCoordinate,
-            selectedCoordinateTitle = "Seçilen Biniş Noktası",
             onMapClick = onMapClick,
+            onCameraReady = { mapCamera = it },
             modifier = Modifier.fillMaxSize()
         )
 
         NeonMapOverlay()
 
-        // Top info + controls
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -82,60 +99,33 @@ fun PassengerMapTabView(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                // Compact info card
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(NeonTheme.SurfaceContainer.copy(alpha = 0.72f))
-                        .border(
-                            width = 1.dp,
-                            color = NeonTheme.Secondary.copy(alpha = 0.22f),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .padding(12.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(NeonTheme.Secondary)
-                                .shadow(4.dp, spotColor = NeonTheme.Secondary.copy(alpha = 0.8f))
-                        )
-                        Text(
-                            text = "SERVİS",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = NeonTheme.OnSurface,
-                            modifier = Modifier.padding(start = 6.dp)
-                        )
-                    }
-                    Text(
-                        text = if (driverLocation != null) {
-                            "${driverLocation.driverName.uppercase()} • aktif"
-                        } else if (isTripActive) "Konum bekleniyor" else "Servis bekliyor",
-                        fontSize = 10.sp,
-                        color = if (driverLocation != null) NeonTheme.Secondary else NeonTheme.OnSurfaceVariant
-                    )
-                }
+                PassengerMapCompactInfo(
+                    groupName = groupName,
+                    driverLocation = driverLocation,
+                    isTripActive = isTripActive,
+                    modifier = Modifier.weight(1f)
+                )
 
                 Spacer(modifier = Modifier.weight(0.1f))
 
-                // Zoom controls
                 Column(horizontalAlignment = Alignment.End) {
-                    MapControlButton(icon = Icons.Default.Add, onClick = onZoomIn)
-                    MapControlButton(icon = Icons.Default.Remove, onClick = onZoomOut)
+                    MapControlButton(
+                        icon = Icons.Default.Add,
+                        onClick = { scope.launch { mapCamera?.zoom(by = 0.7) } }
+                    )
+                    MapControlButton(
+                        icon = Icons.Default.Remove,
+                        onClick = { scope.launch { mapCamera?.zoom(by = 1.35) } }
+                    )
                     MapControlButton(
                         icon = Icons.Default.MyLocation,
                         highlighted = true,
-                        onClick = onFitAll
+                        onClick = { scope.launch { mapCamera?.fitCamera(animated = true) } }
                     )
                 }
             }
         }
 
-        // Bottom pickup action bar
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -152,43 +142,116 @@ fun PassengerMapTabView(
                         color = NeonTheme.Secondary.copy(alpha = 0.22f),
                         shape = RoundedCornerShape(12.dp)
                     )
-                    .padding(14.dp),
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = if (draftCoordinate != null)
-                        "Seçilen nokta haritada işaretli. Kaydetmek için butona bas."
-                    else
-                        "Haritaya dokunarak biniş noktanızı seçin.",
+                    text = "Sabah biniş noktanız",
                     fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 1.5.sp,
                     color = NeonTheme.OnSurfaceVariant
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
+                Text(
+                    text = "Haritaya dokunarak konum seçin",
+                    fontSize = 12.sp,
+                    color = NeonTheme.OnSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                )
                 Button(
                     onClick = onSavePickup,
-                    enabled = draftCoordinate != null && !isSaving,
+                    enabled = !isSaving && draftCoordinate != null,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (draftCoordinate != null)
-                            NeonTheme.SurfaceContainerHigh
-                        else
-                            NeonTheme.SurfaceContainer,
-                        contentColor = if (draftCoordinate != null)
-                            NeonTheme.Secondary
-                        else
-                            NeonTheme.OnSurfaceVariant
+                        containerColor = NeonTheme.Secondary,
+                        contentColor = NeonTheme.OnSurface
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = if (isSaving) "Kaydediliyor..." else "BİNİŞ NOKTAMI KAYDET",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        text = if (isSaving) "Kaydediliyor..." else "BİNİŞ NOKTASINI KAYDET",
+                        fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PassengerMapCompactInfo(
+    groupName: String,
+    driverLocation: DriverLocation?,
+    isTripActive: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+
+    Column(
+        modifier = modifier
+            .widthIn(max = 220.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(NeonTheme.SurfaceContainer.copy(alpha = 0.72f))
+            .border(
+                width = 1.dp,
+                color = NeonTheme.Outline.copy(alpha = 0.25f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        if (isTripActive) {
+            Text(
+                text = "Sürücü canlı konum",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.5.sp,
+                color = NeonTheme.OnSurfaceVariant
+            )
+            when {
+                driverLocation != null -> {
+                    Text(
+                        text = driverLocation.driverName,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = NeonTheme.Secondary,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = timeFormat.format(driverLocation.updatedAt),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = NeonTheme.OnSurfaceVariant
+                    )
+                }
+                else -> {
+                    Text(
+                        text = "Konum bekleniyor",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = NeonTheme.OnSurfaceVariant
+                    )
+                }
+            }
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = groupName.uppercase(),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonTheme.OnSurface,
+                    maxLines = 1
+                )
+            }
+            Text(
+                text = "Servis bekliyor",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                color = NeonTheme.OnSurfaceVariant
+            )
         }
     }
 }
@@ -199,20 +262,33 @@ private fun MapControlButton(
     highlighted: Boolean = false,
     onClick: () -> Unit
 ) {
-    IconButton(onClick = onClick) {
+    val bg = if (highlighted) {
+        NeonTheme.Secondary.copy(alpha = 0.2f)
+    } else {
+        NeonTheme.SurfaceContainerHigh.copy(alpha = 0.9f)
+    }
+    val border = if (highlighted) {
+        NeonTheme.Secondary.copy(alpha = 0.5f)
+    } else {
+        NeonTheme.Outline.copy(alpha = 0.3f)
+    }
+
+    Box(
+        modifier = Modifier
+            .padding(bottom = 8.dp)
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(bg)
+            .border(1.dp, border, CircleShape)
+            .shadow(4.dp, spotColor = Color.Black.copy(alpha = 0.3f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = if (highlighted) NeonTheme.Secondary else NeonTheme.OnSurface,
-            modifier = Modifier
-                .size(40.dp)
-                .background(NeonTheme.SurfaceContainer.copy(alpha = 0.92f), CircleShape)
-                .border(
-                    width = 1.dp,
-                    color = if (highlighted) NeonTheme.Secondary.copy(alpha = 0.5f) else NeonTheme.Outline.copy(alpha = 0.3f),
-                    shape = CircleShape
-                )
-                .padding(8.dp)
+            modifier = Modifier.size(18.dp)
         )
     }
 }

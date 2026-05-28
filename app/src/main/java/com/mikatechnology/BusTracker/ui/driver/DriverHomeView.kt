@@ -4,6 +4,11 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,11 +26,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.zIndex
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
@@ -50,6 +56,8 @@ import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.ui.map.resolveDriverMapLocation
 import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
+import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountFooter
+import com.mikatechnology.BusTracker.ui.settings.SettingsSignOutRow
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
 @Composable
@@ -73,6 +81,8 @@ fun DriverHomeView(
     val morningPickups by ShuttleStore.shared.morningPickups.collectAsStateWithLifecycle()
     val locationAuthStatus by LocationTracker.authorizationStatus.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val showTripDurationSheet by viewModel.showTripDurationSheet.collectAsStateWithLifecycle()
+    val selectedTripDurationHours by viewModel.selectedTripDurationHours.collectAsStateWithLifecycle()
 
     val passengers = members.filter { it.role == MemberRole.Passenger }
     val stats = viewModel.passengerStats(members)
@@ -115,18 +125,12 @@ fun DriverHomeView(
     }
 
     BaseViewShell(viewModel = viewModel, modifier = modifier) {
-        if (showMyServices) {
-            MyServicesScreen(
-                onBack = { showMyServices = false }
-            )
-        } else {
+        Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize()) {
-                if (selectedTab != DriverHomeTab.Map) {
-                    DriverTopBar(
-                        isTripActive = isTripActive,
-                        onMenuClick = { showMyServices = true }
-                    )
-                }
+                DriverTopBar(
+                    isTripActive = isTripActive,
+                    onMenuClick = { showMyServices = true }
+                )
 
                 Box(
                     modifier = Modifier
@@ -151,7 +155,7 @@ fun DriverHomeView(
                                         Manifest.permission.ACCESS_BACKGROUND_LOCATION
                                     )
                                 }
-                                viewModel.toggleTrip(context)
+                                viewModel.handleTripControlTap()
                             },
                             onCopyCode = {
                                 viewModel.copyGroupCode(context, viewModel.userProfile.groupCode)
@@ -178,6 +182,11 @@ fun DriverHomeView(
                                 viewModel.requestSignOut {
                                     viewModel.signOut(context)
                                 }
+                            },
+                            onDeleteAccount = {
+                                viewModel.requestDeleteAccount {
+                                    viewModel.deleteAccount(context)
+                                }
                             }
                         )
                     }
@@ -187,6 +196,40 @@ fun DriverHomeView(
                     selectedTab = selectedTab,
                     onTabSelected = tabController::select
                 )
+            }
+
+            if (showMyServices) {
+                MyServicesScreen(
+                    onBack = { showMyServices = false },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(2f)
+                )
+            }
+
+            AnimatedVisibility(
+                visible = showTripDurationSheet,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(3f)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f))
+                            .clickable { viewModel.dismissTripDurationSheet() }
+                    )
+                    TripDurationBottomSheet(
+                        selectedHours = selectedTripDurationHours,
+                        onSelectedHoursChange = viewModel::selectTripDurationHours,
+                        isLoading = uiState.isLoading,
+                        onConfirm = viewModel::confirmStartTrip,
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                }
             }
         }
     }
@@ -206,14 +249,17 @@ private fun DriverTopBar(
                 .padding(horizontal = 24.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.Dashboard,
-                contentDescription = "Menü",
-                tint = NeonTheme.OnSurface,
-                modifier = Modifier
-                    .size(22.dp)
-                    .clickable { onMenuClick() }
-            )
+            IconButton(
+                onClick = onMenuClick,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Dashboard,
+                    contentDescription = "Servislerim",
+                    tint = NeonTheme.OnSurface,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
             if (isTripActive) {
                 Row(
@@ -252,46 +298,31 @@ fun DriverSettingsTab(
     profile: UserProfile,
     onCopyCode: () -> Unit,
     onSignOut: () -> Unit,
+    onDeleteAccount: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        DriverSettingsRow(
-            title = "Servis Kodu",
-            value = profile.groupCode,
-            onClick = onCopyCode
-        )
-        DriverSettingsRow(
-            title = "Adınız",
-            value = profile.name,
-            onClick = null
-        )
-        Row(
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onSignOut)
-                .background(NeonTheme.SurfaceContainer)
-                .border(1.dp, NeonTheme.Error.copy(alpha = 0.3f))
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Logout,
-                contentDescription = null,
-                tint = NeonTheme.Error
+            DriverSettingsRow(
+                title = "Servis Kodu",
+                value = profile.groupCode,
+                onClick = onCopyCode
             )
-            Text(
-                text = "Çıkış Yap",
-                fontWeight = FontWeight.SemiBold,
-                color = NeonTheme.Error,
-                modifier = Modifier.padding(start = 12.dp)
+            DriverSettingsRow(
+                title = "Adınız",
+                value = profile.name,
+                onClick = null
             )
+            SettingsSignOutRow(onClick = onSignOut)
         }
+
+        SettingsDeleteAccountFooter(onClick = onDeleteAccount)
     }
 }
 

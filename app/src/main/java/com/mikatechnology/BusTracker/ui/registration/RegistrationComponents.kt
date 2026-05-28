@@ -140,13 +140,15 @@ fun NeonRegistrationHero(
             )
         }
 
-        Text(
-            text = title,
-            fontSize = 32.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = NeonTheme.OnSurface,
-            textAlign = TextAlign.Center
-        )
+        if (title.isNotBlank()) {
+            Text(
+                text = title,
+                fontSize = 32.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = NeonTheme.OnSurface,
+                textAlign = TextAlign.Center
+            )
+        }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -351,6 +353,37 @@ fun NeonPrimaryButton(
                     modifier = Modifier.size(16.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun GoogleSignInButton(
+    text: String,
+    onClick: () -> Unit,
+    enabled: Boolean,
+    loading: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (enabled) NeonTheme.SurfaceBright else NeonTheme.SurfaceBright.copy(alpha = 0.5f))
+            .border(1.dp, NeonTheme.Outline.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled && !loading, onClick = onClick)
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (loading) {
+            Text("...", color = NeonTheme.OnSurface)
+        } else {
+            Text(
+                text = text,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+                color = NeonTheme.OnSurface
+            )
         }
     }
 }

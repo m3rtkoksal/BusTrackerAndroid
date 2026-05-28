@@ -12,7 +12,8 @@ object UserSessionRepository {
     private const val KEY_USER_ID = "userID"
     private const val KEY_MEMBER_ID = "memberID"
     private const val KEY_NAME = "name"
-    private const val KEY_PHONE = "phoneNumber"
+    private const val KEY_AUTH_USER_ID = "authUserId"
+    private const val KEY_PHONE_LEGACY = "phoneNumber"
     private const val KEY_ROLE = "role"
     private const val KEY_GROUP_ID = "groupID"
     private const val KEY_GROUP_CODE = "groupCode"
@@ -41,11 +42,15 @@ object UserSessionRepository {
             return
         }
 
+        val authUserId = prefs.getString(KEY_AUTH_USER_ID, null)
+            ?: prefs.getString(KEY_PHONE_LEGACY, null)?.let { "legacy:$it" }
+            ?: ""
+
         _profile.value = UserProfile(
             userID = userID,
             memberID = prefs.getString(KEY_MEMBER_ID, userID) ?: userID,
             name = prefs.getString(KEY_NAME, "") ?: "",
-            phoneNumber = prefs.getString(KEY_PHONE, "") ?: "",
+            authUserId = authUserId,
             role = role,
             groupID = prefs.getString(KEY_GROUP_ID, "") ?: "",
             groupCode = prefs.getString(KEY_GROUP_CODE, "") ?: "",
@@ -62,7 +67,7 @@ object UserSessionRepository {
             .putString(KEY_USER_ID, profile.userID)
             .putString(KEY_MEMBER_ID, profile.memberID)
             .putString(KEY_NAME, profile.name)
-            .putString(KEY_PHONE, profile.phoneNumber)
+            .putString(KEY_AUTH_USER_ID, profile.authUserId)
             .putString(KEY_ROLE, profile.role.rawValue)
             .putString(KEY_GROUP_ID, profile.groupID)
             .putString(KEY_GROUP_CODE, profile.groupCode)

@@ -1,31 +1,23 @@
 package com.mikatechnology.BusTracker.data.repository
 
-import android.app.Activity
-import com.google.firebase.FirebaseException
+import android.content.Intent
+import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.PhoneAuthCredential
-import com.google.firebase.auth.PhoneAuthOptions
-import com.google.firebase.auth.PhoneAuthProvider
-import com.mikatechnology.BusTracker.BuildConfig
+import com.mikatechnology.BusTracker.auth.GoogleSignInHelper
+import com.mikatechnology.BusTracker.auth.GoogleSignInResult
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.suspendCancellableCoroutine
-import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 sealed class AuthError(message: String) : Exception(message) {
-    class InvalidPhone : AuthError("Geçerli bir telefon numarası girin.")
-    class MissingVerificationId : AuthError("Önce doğrulama kodu isteyin.")
     class FirebaseNotReady : AuthError("Firebase henüz hazır değil. Lütfen tekrar deneyin.")
+    class SignInCancelled : AuthError("Google ile giriş iptal edildi.")
+    class SignInFailed(message: String) : AuthError(message)
 }
 
 object AuthRepository {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-
-    private var verificationId: String? = null
-    private var verifiedPhoneNumber: String? = null
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -33,130 +25,80 @@ object AuthRepository {
     private val _isCompletingRegistration = MutableStateFlow(false)
     val isCompletingRegistration: StateFlow<Boolean> = _isCompletingRegistration.asStateFlow()
 
+    private var lastGoogleUserId: String? = null
+
     val isSignedIn: Boolean
         get() = auth.currentUser != null
 
     val currentUserId: String?
         get() = auth.currentUser?.uid
 
-    val displayPhoneNumber: String?
-        get() = auth.currentUser?.phoneNumber ?: verifiedPhoneNumber
-
-    fun ensureConfigured() {
-        if (BuildConfig.DEBUG) {
-            auth.firebaseAuthSettings.setAppVerificationDisabledForTesting(true)
-        }
-    }
+    fun ensureConfigured() = Unit
 
     fun setCompletingRegistration(value: Boolean) {
         _isCompletingRegistration.value = value
     }
 
-    suspend fun sendOTP(activity: Activity, rawPhone: String) {
-        val formatted = formatPhone(rawPhone)
-        if (formatted.filter { it.isDigit() }.length < 12) {
-            throw AuthError.InvalidPhone()
+    suspend fun signInWithGoogle(data: Intent?): GoogleSignInResult {
+        if (data == null) {
+            throw AuthError.SignInCancelled()
         }
-
         _isLoading.value = true
         try {
-            verifiedPhoneNumber = formatted
-            val id = suspendCancellableCoroutine<String?> { continuation ->
-                val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-                    override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                        auth.signInWithCredential(credential)
-                            .addOnSuccessListener {
-                                verifiedPhoneNumber = auth.currentUser?.phoneNumber ?: verifiedPhoneNumber
-                                verificationId = null
-                                if (continuation.isActive) {
-                                    continuation.resume(null)
-                                }
-                            }
-                            .addOnFailureListener { error ->
-                                if (continuation.isActive) {
-                                    continuation.resumeWithException(error)
-                                }
-                            }
-                    }
-
-                    override fun onVerificationFailed(error: FirebaseException) {
-                        if (continuation.isActive) {
-                            continuation.resumeWithException(error)
-                        }
-                    }
-
-                    override fun onCodeSent(
-                        id: String,
-                        token: PhoneAuthProvider.ForceResendingToken
-                    ) {
-                        if (continuation.isActive) {
-                            continuation.resume(id)
-                        }
-                    }
-                }
-
-                val options = PhoneAuthOptions.newBuilder(auth)
-                    .setPhoneNumber(formatted)
-                    .setTimeout(60L, TimeUnit.SECONDS)
-                    .setActivity(activity)
-                    .setCallbacks(callbacks)
-                    .build()
-
-                PhoneAuthProvider.verifyPhoneNumber(options)
+            val result = GoogleSignInHelper.signInWithGoogleResult(data)
+            lastGoogleUserId = result.googleUserId
+            return result
+        } catch (error: ApiException) {
+            if (error.statusCode == 12501) {
+                throw AuthError.SignInCancelled()
             }
-            verificationId = id
+            throw AuthError.SignInFailed(googleSignInErrorMessage(error))
+        } catch (error: Exception) {
+            throw AuthError.SignInFailed(error.message ?: "Google ile giriş başarısız.")
         } finally {
             _isLoading.value = false
         }
     }
 
-    suspend fun verifyOTP(code: String) {
-        val id = verificationId ?: throw AuthError.MissingVerificationId()
-
-        _isLoading.value = true
-        try {
-            val credential = PhoneAuthProvider.getCredential(id, code.trim())
-            suspendCancellableCoroutine { continuation ->
-                auth.signInWithCredential(credential)
-                    .addOnSuccessListener {
-                        verifiedPhoneNumber = auth.currentUser?.phoneNumber ?: verifiedPhoneNumber
-                        verificationId = null
-                        if (continuation.isActive) continuation.resume(Unit)
-                    }
-                    .addOnFailureListener { error ->
-                        if (continuation.isActive) continuation.resumeWithException(error)
-                    }
-            }
-        } finally {
-            _isLoading.value = false
-        }
+    fun resolveAuthUserId(): String? {
+        val user = auth.currentUser ?: return lastGoogleUserId
+        user.providerData.firstOrNull { it.providerId == "google.com" }?.uid?.let { return it }
+        return user.uid
     }
 
     fun signOut() {
         auth.signOut()
-        verificationId = null
-        verifiedPhoneNumber = null
+        lastGoogleUserId = null
     }
 
-    fun formatPhone(raw: String): String {
-        val digits = raw.filter { it.isDigit() }
-        return when {
-            digits.startsWith("90") && digits.length == 12 -> "+$digits"
-            digits.startsWith("0") && digits.length == 11 -> "+9$digits"
-            digits.length == 10 -> "+90$digits"
-            raw.startsWith("+") -> "+$digits"
-            else -> "+$digits"
+    suspend fun deleteCurrentUser() {
+        val user = auth.currentUser
+            ?: throw AuthError.SignInFailed("Giriş yapılmamış.")
+        user.delete().await()
+        lastGoogleUserId = null
+    }
+
+    /** Google Sign-In [CommonStatusCodes] / [GoogleSignInStatusCodes] → kullanıcı mesajı. */
+    private fun googleSignInErrorMessage(error: ApiException): String {
+        return when (error.statusCode) {
+            10 -> """
+                Google yapılandırma hatası (kod 10).
+                Firebase Console → Proje ayarları → Android uygulamanız → SHA-1 parmak izi ekleyin.
+                Android Studio: Gradle → :app → signingReport ile debug SHA-1 alın.
+                Sonra google-services.json dosyasını yeniden indirip projeye koyun.
+            """.trim().replace("\n", " ")
+
+            7 -> "İnternet bağlantısı yok. Bağlantınızı kontrol edin."
+            8 -> "Google Play Hizmetleri güncel değil veya eksik."
+            12500 -> "Google ile giriş şu an kullanılamıyor. Lütfen tekrar deneyin."
+            else -> {
+                val detail = error.localizedMessage?.trim().orEmpty()
+                if (detail.isNotBlank() && !detail.matches(Regex("^\\d+:\\s*$"))) {
+                    detail
+                } else {
+                    "Google ile giriş başarısız (kod ${error.statusCode})."
+                }
+            }
         }
-    }
-
-    fun displayFormat(e164: String): String {
-        val digits = e164.filter { it.isDigit() }
-        if (digits.length < 12 || !digits.startsWith("90")) return e164
-        val local = digits.drop(2)
-        if (local.length != 10) return e164
-        val area = local.take(3)
-        val mid = local.drop(3).take(3)
-        val end = local.takeLast(4)
-        return "+90 $area $mid ${end.take(2)} ${end.takeLast(2)}"
     }
 }

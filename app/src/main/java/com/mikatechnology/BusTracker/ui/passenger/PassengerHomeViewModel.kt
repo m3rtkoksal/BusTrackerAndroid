@@ -9,6 +9,7 @@ import com.mikatechnology.BusTracker.base.NavigationBarStyle
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.data.model.UserProfile
+import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,7 +49,12 @@ class PassengerHomeViewModel(
     }
 
     fun onAppear(groupID: String) {
-        store.startListening(groupID)
+        val resolvedGroupID = groupID.ifBlank { profile.primaryGroupID }
+        if (resolvedGroupID.isBlank()) {
+            showError("Servis bilgisi bulunamadı. Çıkış yapıp servise yeniden katılın.")
+            return
+        }
+        store.startListening(resolvedGroupID)
         loadSavedPickup()
     }
 
@@ -90,20 +96,54 @@ class PassengerHomeViewModel(
         )
     }
 
+    fun requestDeleteAccount(onConfirm: () -> Unit) {
+        showConfirm(
+            title = "Hesabı Sil",
+            message = "Hesabınızı ve tüm verilerinizi (profil, biniş noktaları, katılım kayıtları vb.) kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
+            confirmTitle = "Hesabı Kalıcı Olarak Sil",
+            destructive = true,
+            onConfirm = onConfirm
+        )
+    }
+
     fun signOut(context: Context) {
         viewModelScope.launch {
-            store.stopListening()
-            UserSessionRepository.clear(context)
-            // In a real app you would also call FirebaseAuth signOut here
+            setLoading(true, "Çıkış yapılıyor...")
+            try {
+                store.stopListening()
+                UserSessionRepository.signOut(context)
+            } catch (e: Exception) {
+                showError(e.localizedMessage ?: "Çıkış yapılamadı.")
+                setLoading(false)
+            }
         }
     }
+
+    fun deleteAccount(context: Context) {
+        viewModelScope.launch {
+            setLoading(true, "Hesap siliniyor...")
+            try {
+                store.deleteUserData(profile)
+                AuthRepository.deleteCurrentUser()
+                store.stopListening()
+                UserSessionRepository.signOut(context)
+                showSuccess("Hesabınız başarıyla silindi.")
+            } catch (e: Exception) {
+                showError("Hesap silinirken bir hata oluştu: ${e.localizedMessage ?: "Bilinmeyen hata"}")
+                setLoading(false)
+            }
+        }
+    }
+
+    private fun resolvedGroupID(): String =
+        profile.groupID.ifBlank { profile.primaryGroupID }
 
     fun updateAttendance(status: AttendanceStatus, context: Context) {
         viewModelScope.launch {
             _isUpdatingAttendance.value = true
             try {
                 store.setAttendance(
-                    groupID = profile.groupID,
+                    groupID = resolvedGroupID(),
                     memberID = profile.memberID,
                     name = profile.name,
                     status = status
@@ -126,7 +166,7 @@ class PassengerHomeViewModel(
             _isSavingPickup.value = true
             try {
                 store.setMorningPickup(
-                    groupID = profile.groupID,
+                    groupID = resolvedGroupID(),
                     memberID = profile.memberID,
                     name = profile.name,
                     latitude = coordinate.latitude,

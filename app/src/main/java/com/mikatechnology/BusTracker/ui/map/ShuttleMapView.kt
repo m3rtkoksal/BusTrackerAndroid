@@ -4,15 +4,18 @@ import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -39,7 +42,6 @@ import com.google.maps.android.compose.MapEffect
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapType
 import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerComposable
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
@@ -59,8 +61,7 @@ fun ShuttleMapView(
     modifier: Modifier = Modifier,
     onCameraReady: (ShuttleMapCamera) -> Unit = {},
     onMapClick: ((LatLng) -> Unit)? = null,
-    selectedCoordinate: LatLng? = null,
-    selectedCoordinateTitle: String = "Seçilen Biniş Noktası"
+    selectedCoordinate: LatLng? = null
 ) {
     if (BuildConfig.MAPS_API_KEY.isBlank()) {
         MapApiKeyMissingBanner(modifier = modifier)
@@ -74,22 +75,26 @@ fun ShuttleMapView(
     var isMapLoaded by remember { mutableStateOf(false) }
 
     val camera = remember(cameraPositionState) {
-        ShuttleMapCamera(
-            cameraPositionState = cameraPositionState,
-            driverLocation = driverLocation,
-            morningPickups = morningPickups
-        )
+        ShuttleMapCamera(cameraPositionState = cameraPositionState)
     }
 
-    LaunchedEffect(cameraPositionState) {
+    LaunchedEffect(camera) {
         onCameraReady(camera)
     }
 
-
-
-    LaunchedEffect(isMapLoaded, driverLocation?.updatedAt, morningPickups.size) {
+    LaunchedEffect(
+        isMapLoaded,
+        driverLocation?.updatedAt,
+        morningPickups.size,
+        selectedCoordinate?.latitude,
+        selectedCoordinate?.longitude
+    ) {
         if (!isMapLoaded) return@LaunchedEffect
-        camera.updateData(driverLocation, morningPickups)
+        camera.updateData(
+            driverLocation = driverLocation,
+            morningPickups = morningPickups,
+            extraCoordinates = listOfNotNull(selectedCoordinate)
+        )
         camera.fitCamera(animated = false)
     }
 
@@ -134,21 +139,36 @@ fun ShuttleMapView(
                 }
             }
 
+            val hasDraftAtNewLocation = selectedCoordinate != null &&
+                morningPickups.none { pickup ->
+                    LatLng(pickup.latitude, pickup.longitude).isSameLocationAs(selectedCoordinate)
+                }
+
             morningPickups.forEach { pickup ->
-                Marker(
-                    state = MarkerState(LatLng(pickup.latitude, pickup.longitude)),
-                    title = pickup.name,
-                    snippet = "Kayıtlı biniş"
-                )
+                val pickupLatLng = LatLng(pickup.latitude, pickup.longitude)
+                if (selectedCoordinate != null && pickupLatLng.isSameLocationAs(selectedCoordinate)) {
+                    return@forEach
+                }
+                val style = if (hasDraftAtNewLocation) {
+                    PickupMarkerStyle.SavedFaded
+                } else {
+                    PickupMarkerStyle.Saved
+                }
+                MarkerComposable(
+                    state = MarkerState(pickupLatLng),
+                    zIndex = if (style == PickupMarkerStyle.SavedFaded) 0.5f else 1f
+                ) {
+                    PickupMarkerView(style = style)
+                }
             }
 
-            // Draft / currently selected coordinate (for passenger choosing pickup point)
             selectedCoordinate?.let { coord ->
-                Marker(
+                MarkerComposable(
                     state = MarkerState(coord),
-                    title = selectedCoordinateTitle,
-                    snippet = "Dokunarak değiştir"
-                )
+                    zIndex = 2f
+                ) {
+                    PickupMarkerView(style = PickupMarkerStyle.Draft)
+                }
             }
         }
     }
@@ -176,13 +196,26 @@ private fun MapApiKeyMissingBanner(modifier: Modifier = Modifier) {
 
 
 class ShuttleMapCamera(
-    private val cameraPositionState: com.google.maps.android.compose.CameraPositionState,
-    private var driverLocation: DriverLocation?,
-    private var morningPickups: List<MorningPickup>
+    private val cameraPositionState: com.google.maps.android.compose.CameraPositionState
 ) {
+    private var driverLocation: DriverLocation? = null
+    private var morningPickups: List<MorningPickup> = emptyList()
+    private var extraCoordinates: List<LatLng> = emptyList()
+
+    fun updateData(
+        driverLocation: DriverLocation?,
+        morningPickups: List<MorningPickup>,
+        extraCoordinates: List<LatLng> = emptyList()
+    ) {
+        this.driverLocation = driverLocation
+        this.morningPickups = morningPickups
+        this.extraCoordinates = extraCoordinates
+    }
+
     suspend fun fitCamera(animated: Boolean = true) {
         val coordinates = buildList {
             addAll(morningPickups.map { LatLng(it.latitude, it.longitude) })
+            addAll(extraCoordinates)
             driverLocation?.let { add(LatLng(it.latitude, it.longitude)) }
         }
 
@@ -213,11 +246,6 @@ class ShuttleMapCamera(
         moveCamera(CameraUpdateFactory.zoomTo(newZoom), animated = true)
     }
 
-    fun updateData(driverLocation: DriverLocation?, morningPickups: List<MorningPickup>) {
-        this.driverLocation = driverLocation
-        this.morningPickups = morningPickups
-    }
-
     private suspend fun moveCamera(
         update: com.google.android.gms.maps.CameraUpdate,
         animated: Boolean
@@ -230,48 +258,120 @@ class ShuttleMapCamera(
     }
 }
 
+private enum class PickupMarkerStyle {
+    Saved,
+    SavedFaded,
+    Draft
+}
+
+private fun LatLng.isSameLocationAs(other: LatLng, epsilon: Double = 1e-5): Boolean {
+    return kotlin.math.abs(latitude - other.latitude) < epsilon &&
+        kotlin.math.abs(longitude - other.longitude) < epsilon
+}
+
+@Composable
+private fun PickupMarkerView(
+    style: PickupMarkerStyle,
+    modifier: Modifier = Modifier
+) {
+    val pinColor = when (style) {
+        PickupMarkerStyle.Saved -> NeonTheme.Primary
+        PickupMarkerStyle.SavedFaded -> NeonTheme.Primary.copy(alpha = 0.45f)
+        PickupMarkerStyle.Draft -> NeonTheme.Secondary
+    }
+    val iconSize = when (style) {
+        PickupMarkerStyle.Draft -> 36.dp
+        PickupMarkerStyle.Saved -> 32.dp
+        PickupMarkerStyle.SavedFaded -> 32.dp
+    }
+    val haloAlpha = when (style) {
+        PickupMarkerStyle.Draft -> 0.08f
+        PickupMarkerStyle.Saved -> 0.22f
+        PickupMarkerStyle.SavedFaded -> 0.1f
+    }
+
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(iconSize + 8.dp)
+                .clip(CircleShape)
+                .background(pinColor.copy(alpha = haloAlpha))
+        )
+        Icon(
+            imageVector = Icons.Filled.LocationOn,
+            contentDescription = null,
+            tint = pinColor,
+            modifier = Modifier.size(iconSize)
+        )
+    }
+}
+
 /**
  * Custom driver location marker that mimics the iOS style:
  * Large glowing circle + directional arrow (instead of default pin).
  */
 @Composable
 fun DriverMarkerView(driverName: String) {
-    Box(
-        modifier = Modifier.size(56.dp),
-        contentAlignment = Alignment.Center
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Outer glow
         Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(NeonTheme.Secondary.copy(alpha = 0.15f))
-        )
+            modifier = Modifier.size(56.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(NeonTheme.Secondary.copy(alpha = 0.15f))
+            )
 
-        // Ring
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .border(
-                    width = 1.dp,
-                    color = NeonTheme.Secondary.copy(alpha = 0.35f),
-                    shape = CircleShape
-                )
-        )
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .border(
+                        width = 1.dp,
+                        color = NeonTheme.Secondary.copy(alpha = 0.35f),
+                        shape = CircleShape
+                    )
+            )
 
-        // Directional arrow (this is what the user sees as "ok" / arrow on iOS)
-        Icon(
-            imageVector = Icons.Filled.Navigation,
-            contentDescription = null,
-            tint = NeonTheme.Secondary,
-            modifier = Modifier
-                .size(28.dp)
-                .shadow(
-                    elevation = 8.dp,
-                    spotColor = NeonTheme.Secondary.copy(alpha = 0.8f),
-                    ambientColor = NeonTheme.Secondary.copy(alpha = 0.4f)
-                )
-        )
+            Icon(
+                imageVector = Icons.Filled.Navigation,
+                contentDescription = null,
+                tint = NeonTheme.Secondary,
+                modifier = Modifier
+                    .size(28.dp)
+                    .shadow(
+                        elevation = 8.dp,
+                        spotColor = NeonTheme.Secondary.copy(alpha = 0.8f),
+                        ambientColor = NeonTheme.Secondary.copy(alpha = 0.4f)
+                    )
+            )
+        }
+
+        if (driverName.isNotBlank()) {
+            Text(
+                text = driverName,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = NeonTheme.OnSurface,
+                maxLines = 1,
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(NeonTheme.SurfaceContainer.copy(alpha = 0.92f))
+                    .border(
+                        width = 1.dp,
+                        color = NeonTheme.Secondary.copy(alpha = 0.35f),
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
     }
 }

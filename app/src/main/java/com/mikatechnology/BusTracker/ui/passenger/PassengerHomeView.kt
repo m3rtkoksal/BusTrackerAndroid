@@ -34,7 +34,6 @@ import com.mikatechnology.BusTracker.base.BaseViewShell
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
-import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
 @Composable
@@ -68,10 +67,7 @@ fun PassengerHomeView(
     }
 
     LaunchedEffect(profile.groupID) {
-        LocationTracker.initialize(context)
         viewModel.onAppear(profile.groupID)
-        // Passenger only needs when-in-use for showing own location on map
-        LocationTracker.requestWhenInUse(context)
     }
 
     LaunchedEffect(isTripActive) {
@@ -112,6 +108,7 @@ fun PassengerHomeView(
                         // NOTE: Full interactive passenger map (tap to pick location + custom neon markers)
                         // is implemented in PassengerMapTabView. Using simplified version for now.
                         PassengerMapTabView(
+                            groupName = profile.groupName,
                             driverLocation = driverLocation,
                             draftCoordinate = draftCoordinate,
                             savedPickup = savedPickup,
@@ -122,10 +119,7 @@ fun PassengerHomeView(
                             },
                             onSavePickup = {
                                 viewModel.saveMorningPickup(context)
-                            },
-                            onZoomIn = { /* TODO: expose from map camera */ },
-                            onZoomOut = { /* TODO */ },
-                            onFitAll = { /* TODO */ }
+                            }
                         )
                     }
 
@@ -138,6 +132,11 @@ fun PassengerHomeView(
                             onSignOut = {
                                 viewModel.requestSignOut {
                                     viewModel.signOut(context)
+                                }
+                            },
+                            onDeleteAccount = {
+                                viewModel.requestDeleteAccount {
+                                    viewModel.deleteAccount(context)
                                 }
                             }
                         )

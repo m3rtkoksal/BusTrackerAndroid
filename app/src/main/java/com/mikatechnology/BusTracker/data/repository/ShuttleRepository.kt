@@ -33,8 +33,8 @@ class ShuttleRepository {
 
     suspend fun createGroup(name: String, driverName: String): UserProfile {
         val user = auth.currentUser ?: throw ShuttleError.NotAuthenticated()
-        val phone = user.phoneNumber ?: AuthRepository.displayPhoneNumber
-            ?: throw ShuttleError.InvalidInput("Telefon numarası bulunamadı.")
+        val authUserId = AuthRepository.resolveAuthUserId()
+            ?: throw ShuttleError.InvalidInput("Google hesap kimliği bulunamadı.")
 
         val trimmedName = name.trim()
         val trimmedDriver = driverName.trim()
@@ -65,7 +65,7 @@ class ShuttleRepository {
                 mapOf(
                     "userID" to user.uid,
                     "name" to trimmedDriver,
-                    "phoneNumber" to phone,
+                    "googleUserID" to authUserId,
                     "role" to MemberRole.Driver.rawValue,
                     "joinedAt" to FieldValue.serverTimestamp()
                 )
@@ -75,7 +75,7 @@ class ShuttleRepository {
                 userID = user.uid,
                 memberID = memberID,
                 name = trimmedDriver,
-                phoneNumber = phone,
+                authUserId = authUserId,
                 role = MemberRole.Driver,
                 groupID = groupID,
                 groupCode = code,
@@ -91,8 +91,8 @@ class ShuttleRepository {
 
     suspend fun joinGroup(code: String, passengerName: String): UserProfile {
         val user = auth.currentUser ?: throw ShuttleError.NotAuthenticated()
-        val phone = user.phoneNumber ?: AuthRepository.displayPhoneNumber
-            ?: throw ShuttleError.InvalidInput("Telefon numarası bulunamadı.")
+        val authUserId = AuthRepository.resolveAuthUserId()
+            ?: throw ShuttleError.InvalidInput("Google hesap kimliği bulunamadı.")
 
         val trimmedCode = code.trim().uppercase()
         val trimmedName = passengerName.trim()
@@ -127,7 +127,7 @@ class ShuttleRepository {
                 mapOf(
                     "userID" to user.uid,
                     "name" to trimmedName,
-                    "phoneNumber" to phone,
+                    "googleUserID" to authUserId,
                     "role" to MemberRole.Passenger.rawValue,
                     "joinedAt" to FieldValue.serverTimestamp()
                 )
@@ -137,7 +137,7 @@ class ShuttleRepository {
                 userID = user.uid,
                 memberID = memberID,
                 name = trimmedName,
-                phoneNumber = phone,
+                authUserId = authUserId,
                 role = MemberRole.Passenger,
                 groupID = groupDoc.id,
                 groupCode = groupCode,
@@ -156,7 +156,7 @@ class ShuttleRepository {
             mapOf(
                 "memberID" to profile.memberID,
                 "name" to profile.name,
-                "phoneNumber" to profile.phoneNumber,
+                "googleUserID" to profile.authUserId,
                 "role" to profile.role.rawValue,
                 "groupID" to profile.groupID,
                 "groupCode" to profile.groupCode,
@@ -169,18 +169,22 @@ class ShuttleRepository {
     private fun userProfileFrom(data: Map<String, Any>, userID: String): UserProfile? {
         val memberID = data["memberID"] as? String ?: return null
         val name = data["name"] as? String ?: return null
-        val phoneNumber = data["phoneNumber"] as? String ?: return null
         val roleRaw = data["role"] as? String ?: return null
         val groupID = data["groupID"] as? String ?: return null
         val groupCode = data["groupCode"] as? String ?: return null
         val groupName = data["groupName"] as? String ?: return null
         val role = MemberRole.entries.firstOrNull { it.rawValue == roleRaw } ?: return null
 
+        val authUserId = (data["googleUserID"] as? String)
+            ?: (data["appleUserID"] as? String)
+            ?: (data["phoneNumber"] as? String)?.let { "legacy:$it" }
+            ?: return null
+
         return UserProfile(
             userID = userID,
             memberID = memberID,
             name = name,
-            phoneNumber = phoneNumber,
+            authUserId = authUserId,
             role = role,
             groupID = groupID,
             groupCode = groupCode,

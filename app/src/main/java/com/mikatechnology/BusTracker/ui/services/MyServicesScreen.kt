@@ -10,8 +10,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,10 +28,10 @@ fun MyServicesScreen(
     onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val profile by UserSessionRepository.profile.collectAsState()
+    val profile by UserSessionRepository.profile.collectAsStateWithLifecycle()
     val store = ShuttleStore.shared
-    val isTripActive by store.isTripActive.collectAsState()
-    val activeTripGroupID by store.currentActiveTripGroupID.collectAsState()
+    val isTripActive by store.isTripActive.collectAsStateWithLifecycle()
+    val activeTripGroupID by store.currentActiveTripGroupID.collectAsStateWithLifecycle()
 
     // Build services from real profile data
     val allServices = buildServicesFromProfile(profile)
@@ -60,7 +60,11 @@ fun MyServicesScreen(
         belongsToUser && !isCurrentlyActive
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(NeonTheme.Background)
+    ) {
         // Minimal Top Bar - only back button
         Row(
             modifier = Modifier

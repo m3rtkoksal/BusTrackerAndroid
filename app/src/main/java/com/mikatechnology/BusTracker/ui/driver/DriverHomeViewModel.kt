@@ -1,9 +1,8 @@
 package com.mikatechnology.BusTracker.ui.driver
 
-import android.app.Activity
+import android.content.Context
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -14,9 +13,12 @@ import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.data.model.ShuttleMember
 import com.mikatechnology.BusTracker.data.model.UserProfile
+import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
-import com.mikatechnology.BusTracker.services.LocationTracker
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class DriverHomeViewModel(
@@ -25,6 +27,12 @@ class DriverHomeViewModel(
 
     private val shuttleStore = ShuttleStore.shared
     private var isTripBusy = false
+
+    private val _showTripDurationSheet = MutableStateFlow(false)
+    val showTripDurationSheet: StateFlow<Boolean> = _showTripDurationSheet.asStateFlow()
+
+    private val _selectedTripDurationHours = MutableStateFlow(2.0)
+    val selectedTripDurationHours: StateFlow<Double> = _selectedTripDurationHours.asStateFlow()
 
     val userProfile: UserProfile
         get() = profile
@@ -42,12 +50,23 @@ class DriverHomeViewModel(
 
     fun onAppear(groupID: String) {
         shuttleStore.startListening(groupID)
+        viewModelScope.launch {
+            shuttleStore.reconcileActiveTripIfExpired(profile.groupID, profile.name)
+        }
+    }
+
+    fun dismissTripDurationSheet() {
+        _showTripDurationSheet.value = false
+    }
+
+    fun selectTripDurationHours(hours: Double) {
+        _selectedTripDurationHours.value = hours
     }
 
     fun passengerStats(members: List<ShuttleMember>): DriverPassengerStats {
         val passengers = members.filter { it.role == MemberRole.Passenger }
         return DriverPassengerStats(
-            total = 15, // Sabit maksimum kapasite
+            total = 15,
             coming = passengers.count { it.attendance == AttendanceStatus.Coming },
             notComing = passengers.count { it.attendance == AttendanceStatus.NotComing },
             unknown = passengers.count { it.attendance == AttendanceStatus.Unknown }
@@ -61,9 +80,8 @@ class DriverHomeViewModel(
         val passengerIDs = passengers.map { it.id }.toSet()
 
         return morningPickups.filter { pickup ->
-            // Sadece halen grupta olan ve GELİYORUM diyen yolcuların pin'ini göster
             pickup.memberID in passengerIDs &&
-            passengers.find { it.id == pickup.memberID }?.attendance != AttendanceStatus.NotComing
+                passengers.find { it.id == pickup.memberID }?.attendance != AttendanceStatus.NotComing
         }
     }
 
@@ -77,25 +95,63 @@ class DriverHomeViewModel(
         )
     }
 
-    fun toggleTrip(context: Context) {
+    fun handleTripControlTap() {
+        if (isTripBusy) return
+        if (shuttleStore.isTripActive.value) {
+            stopTrip()
+        } else {
+            _showTripDurationSheet.value = true
+        }
+    }
+
+    fun confirmStartTrip() {
         if (isTripBusy) return
         viewModelScope.launch {
             isTripBusy = true
-            setLoading(true, if (shuttleStore.isTripActive.value) "Servis durduruluyor..." else "Servis başlatılıyor...")
+            _showTripDurationSheet.value = false
+            setLoading(true, "Servis başlatılıyor...")
             try {
-                if (shuttleStore.isTripActive.value) {
-                    shuttleStore.stopTrip(profile.groupID, profile.name)
+                val hours = _selectedTripDurationHours.value
+                shuttleStore.startTrip(profile.groupID, profile.name, hours)
+                val hoursLabel = if (hours == hours.toLong().toDouble()) {
+                    "${hours.toInt()} saat"
                 } else {
-                    shuttleStore.startTrip(profile.groupID, profile.name)
-                    showSuccess("Servis başlatıldı. Yolcular bilgilendirildi.")
+                    "$hours saat"
                 }
+                showSuccess("Servis başlatıldı ($hoursLabel). Süre sonunda otomatik durur.")
             } catch (error: Exception) {
-                showError(error.localizedMessage ?: "Servis işlemi başarısız.")
+                showError(error.localizedMessage ?: "Servis başlatılamadı.")
             } finally {
                 isTripBusy = false
                 setLoading(false)
             }
         }
+    }
+
+    private fun stopTrip() {
+        viewModelScope.launch {
+            isTripBusy = true
+            setLoading(true, "Servis durduruluyor...")
+            try {
+                shuttleStore.stopTrip(profile.groupID, profile.name)
+                showSuccess("Servis durduruldu.")
+            } catch (error: Exception) {
+                showError(error.localizedMessage ?: "Servis durdurulamadı.")
+            } finally {
+                isTripBusy = false
+                setLoading(false)
+            }
+        }
+    }
+
+    fun requestDeleteAccount(onConfirm: () -> Unit) {
+        showConfirm(
+            title = "Hesabı Sil",
+            message = "Hesabınızı ve tüm verilerinizi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
+            confirmTitle = "Hesabı Kalıcı Olarak Sil",
+            destructive = true,
+            onConfirm = onConfirm
+        )
     }
 
     fun signOut(context: Context) {
@@ -109,6 +165,25 @@ class DriverHomeViewModel(
                 UserSessionRepository.signOut(context)
             } catch (error: Exception) {
                 showError(error.localizedMessage ?: "Çıkış yapılamadı.")
+                setLoading(false)
+            }
+        }
+    }
+
+    fun deleteAccount(context: Context) {
+        viewModelScope.launch {
+            setLoading(true, "Hesap siliniyor...")
+            try {
+                if (shuttleStore.isTripActive.value) {
+                    shuttleStore.stopTrip(profile.groupID, profile.name)
+                }
+                shuttleStore.deleteUserData(profile)
+                AuthRepository.deleteCurrentUser()
+                shuttleStore.stopListening()
+                UserSessionRepository.signOut(context)
+                showSuccess("Hesabınız başarıyla silindi.")
+            } catch (error: Exception) {
+                showError("Hesap silinirken bir hata oluştu: ${error.localizedMessage ?: "Bilinmeyen hata"}")
                 setLoading(false)
             }
         }
