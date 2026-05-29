@@ -49,11 +49,9 @@ fun PassengerServiceTab(
     isTripActive: Boolean,
     myAttendance: AttendanceStatus,
     savedMorningPickup: MorningPickup?,
-    showTripBanner: Boolean,
     isUpdatingAttendance: Boolean,
     onAttendanceSelected: (AttendanceStatus) -> Unit,
     onOpenMap: () -> Unit,
-    onDismissBanner: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -92,43 +90,6 @@ fun PassengerServiceTab(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = if (isTripActive) NeonTheme.Secondary else NeonTheme.OnSurfaceVariant
-                )
-            }
-        }
-
-        // Trip Started Banner
-        if (showTripBanner && isTripActive) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(NeonTheme.SurfaceContainer.copy(alpha = 0.92f))
-                    .border(
-                        width = 1.dp,
-                        color = NeonTheme.Secondary.copy(alpha = 0.4f),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = NeonTheme.Secondary
-                )
-                Text(
-                    text = "Servis yola çıktı!",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NeonTheme.OnSurface,
-                    modifier = Modifier.padding(start = 10.dp)
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    text = "Kapat",
-                    fontSize = 11.sp,
-                    color = NeonTheme.OnSurfaceVariant,
-                    modifier = Modifier.clickable { onDismissBanner() }
                 )
             }
         }

@@ -1,6 +1,12 @@
 package com.mikatechnology.BusTracker.ui.passenger
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,7 +64,8 @@ fun PassengerHomeView(
     val morningPickups by ShuttleStore.shared.morningPickups.collectAsState()
     val members by ShuttleStore.shared.members.collectAsState()
 
-    val showTripBanner by viewModel.showTripStartedBanner.collectAsState()
+    val showTripAttendanceSheet by viewModel.showTripStartedAttendanceSheet.collectAsState()
+    val pendingAttendance by viewModel.pendingAttendanceStatus.collectAsState()
     val isUpdatingAttendance by viewModel.isUpdatingAttendance.collectAsState()
     val isSavingPickup by viewModel.isSavingPickup.collectAsState()
     val draftCoordinate by viewModel.draftPickupCoordinate.collectAsState()
@@ -70,13 +77,20 @@ fun PassengerHomeView(
         ShuttleStore.shared.morningPickup(profile.memberID)
     }
 
+    var wasTripActive by remember { mutableStateOf(isTripActive) }
+
     LaunchedEffect(profile.groupID) {
         viewModel.onAppear(profile.groupID)
     }
 
-    LaunchedEffect(isTripActive) {
-        // Notify viewModel when trip starts so it can show banner
-        // (simple approach - in real code you'd track previous value)
+    LaunchedEffect(isTripActive, myAttendance) {
+        if (isTripActive && !wasTripActive) {
+            viewModel.onTripActiveChanged(false, true, myAttendance)
+        } else if (!isTripActive && wasTripActive) {
+            viewModel.onTripActiveChanged(true, false, myAttendance)
+        }
+        wasTripActive = isTripActive
+        viewModel.presentTripAttendanceSheetIfNeeded(isTripActive, myAttendance)
     }
 
     BaseViewShell(viewModel = viewModel, modifier = modifier) {
@@ -101,13 +115,11 @@ fun PassengerHomeView(
                             isTripActive = isTripActive,
                             myAttendance = myAttendance,
                             savedMorningPickup = savedPickup,
-                            showTripBanner = showTripBanner,
                             isUpdatingAttendance = isUpdatingAttendance,
                             onAttendanceSelected = { status ->
                                 viewModel.updateAttendance(status, context)
                             },
-                            onOpenMap = { tabController.select(PassengerHomeTab.Map) },
-                            onDismissBanner = { viewModel.dismissTripBanner() }
+                            onOpenMap = { tabController.select(PassengerHomeTab.Map) }
                         )
                     }
 
@@ -165,6 +177,33 @@ fun PassengerHomeView(
                         .fillMaxSize()
                         .zIndex(2f)
                 )
+            }
+
+            AnimatedVisibility(
+                visible = showTripAttendanceSheet,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(4f)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f))
+                            .clickable { viewModel.dismissTripAttendanceSheet() }
+                    )
+                    TripStartedAttendanceSheet(
+                        driverName = driverLocation?.driverName ?: "Sürücü",
+                        isLoading = isUpdatingAttendance,
+                        pendingStatus = pendingAttendance,
+                        onSelectComing = { viewModel.updateAttendance(AttendanceStatus.Coming, context) },
+                        onSelectNotComing = { viewModel.updateAttendance(AttendanceStatus.NotComing, context) },
+                        onDismiss = { viewModel.dismissTripAttendanceSheet() },
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                }
             }
         }
     }

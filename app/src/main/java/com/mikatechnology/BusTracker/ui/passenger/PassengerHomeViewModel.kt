@@ -23,8 +23,13 @@ class PassengerHomeViewModel(
 
     private val store = ShuttleStore.shared
 
-    private val _showTripStartedBanner = MutableStateFlow(false)
-    val showTripStartedBanner: StateFlow<Boolean> = _showTripStartedBanner.asStateFlow()
+    private val _showTripStartedAttendanceSheet = MutableStateFlow(false)
+    val showTripStartedAttendanceSheet: StateFlow<Boolean> = _showTripStartedAttendanceSheet.asStateFlow()
+
+    private val _pendingAttendanceStatus = MutableStateFlow<AttendanceStatus?>(null)
+    val pendingAttendanceStatus: StateFlow<AttendanceStatus?> = _pendingAttendanceStatus.asStateFlow()
+
+    private var didPromptAttendanceThisTrip = false
 
     private val _isUpdatingAttendance = MutableStateFlow(false)
     val isUpdatingAttendance: StateFlow<Boolean> = _isUpdatingAttendance.asStateFlow()
@@ -58,15 +63,25 @@ class PassengerHomeViewModel(
         loadSavedPickup()
     }
 
-    fun onTripActiveChanged(wasActive: Boolean, isActive: Boolean) {
+    fun onTripActiveChanged(wasActive: Boolean, isActive: Boolean, attendance: AttendanceStatus) {
+        if (!isActive) {
+            didPromptAttendanceThisTrip = false
+            _showTripStartedAttendanceSheet.value = false
+            return
+        }
         if (isActive && !wasActive) {
-            _showTripStartedBanner.value = true
-            showInfo("Servis yola çıktı! Gelecek misiniz?", "Servis Başladı")
+            presentTripAttendanceSheetIfNeeded(isTripActive = true, attendance = attendance)
         }
     }
 
-    fun dismissTripBanner() {
-        _showTripStartedBanner.value = false
+    fun presentTripAttendanceSheetIfNeeded(isTripActive: Boolean, attendance: AttendanceStatus) {
+        if (!isTripActive || attendance != AttendanceStatus.Unknown || didPromptAttendanceThisTrip) return
+        didPromptAttendanceThisTrip = true
+        _showTripStartedAttendanceSheet.value = true
+    }
+
+    fun dismissTripAttendanceSheet() {
+        _showTripStartedAttendanceSheet.value = false
     }
 
     fun selectDraftCoordinate(latLng: com.google.android.gms.maps.model.LatLng) {
@@ -142,6 +157,7 @@ class PassengerHomeViewModel(
 
     fun updateAttendance(status: AttendanceStatus, context: Context) {
         viewModelScope.launch {
+            _pendingAttendanceStatus.value = status
             _isUpdatingAttendance.value = true
             try {
                 store.setAttendance(
@@ -150,10 +166,13 @@ class PassengerHomeViewModel(
                     name = profile.name,
                     status = status
                 )
+                _showTripStartedAttendanceSheet.value = false
+                showSuccess("Seçiminiz kaydedildi: ${status.title}")
             } catch (e: Exception) {
                 showError(e.localizedMessage ?: "Güncellenemedi")
             } finally {
                 _isUpdatingAttendance.value = false
+                _pendingAttendanceStatus.value = null
             }
         }
     }

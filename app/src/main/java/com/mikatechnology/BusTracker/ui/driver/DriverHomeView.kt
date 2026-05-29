@@ -186,10 +186,12 @@ fun DriverHomeView(
     BaseViewShell(viewModel = viewModel, modifier = modifier) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize()) {
-                DriverTopBar(
-                    isTripActive = isTripActive,
-                    onMenuClick = { showMyServices = true }
-                )
+                if (selectedTab != DriverHomeTab.Map) {
+                    DriverTopBar(
+                        isTripActive = isTripActive,
+                        onMenuClick = { showMyServices = true }
+                    )
+                }
 
                 Box(
                     modifier = Modifier
