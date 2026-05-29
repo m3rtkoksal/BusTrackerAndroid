@@ -12,15 +12,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +34,8 @@ import com.mikatechnology.BusTracker.base.BaseViewShell
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
+import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
+import com.mikatechnology.BusTracker.ui.shared.RoleNavBar
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
 @Composable
@@ -48,9 +50,11 @@ fun PassengerHomeView(
 ) {
     val context = LocalContext.current
 
+    var showMyServices by remember { mutableStateOf(false) }
     val selectedTab by tabController.selectedTab.collectAsState()
     val isTripActive by ShuttleStore.shared.isTripActive.collectAsState()
     val driverLocation by ShuttleStore.shared.driverLocation.collectAsState()
+    val driverRoute by ShuttleStore.shared.driverRoute.collectAsState()
     val morningPickups by ShuttleStore.shared.morningPickups.collectAsState()
     val members by ShuttleStore.shared.members.collectAsState()
 
@@ -76,10 +80,13 @@ fun PassengerHomeView(
     }
 
     BaseViewShell(viewModel = viewModel, modifier = modifier) {
+        Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Top info bar only when not on map
             if (selectedTab != PassengerHomeTab.Map) {
-                PassengerTopBar(isTripActive = isTripActive)
+                PassengerTopBar(
+                    isTripActive = isTripActive,
+                    onMenuClick = { showMyServices = true }
+                )
             }
 
             Box(
@@ -110,6 +117,7 @@ fun PassengerHomeView(
                         PassengerMapTabView(
                             groupName = profile.groupName,
                             driverLocation = driverLocation,
+                            driverRoute = driverRoute,
                             draftCoordinate = draftCoordinate,
                             savedPickup = savedPickup,
                             isTripActive = isTripActive,
@@ -149,27 +157,25 @@ fun PassengerHomeView(
                 onTabSelected = tabController::select
             )
         }
+
+            if (showMyServices) {
+                MyServicesScreen(
+                    onBack = { showMyServices = false },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(2f)
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun PassengerTopBar(isTripActive: Boolean) {
-    // Simple top bar matching iOS passengerTopBar
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .background(NeonTheme.Background.copy(alpha = 0.95f))
-            .padding(horizontal = 24.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = Icons.Default.Dashboard,
-            contentDescription = null,
-            tint = NeonTheme.OnSurface,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(modifier = Modifier.weight(1f))
+private fun PassengerTopBar(
+    isTripActive: Boolean,
+    onMenuClick: () -> Unit
+) {
+    RoleNavBar(onMenuClick = onMenuClick) {
         if (isTripActive) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),

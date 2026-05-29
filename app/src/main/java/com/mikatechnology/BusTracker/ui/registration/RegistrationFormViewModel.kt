@@ -12,6 +12,7 @@ import com.mikatechnology.BusTracker.data.repository.AuthError
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
+import com.mikatechnology.BusTracker.services.NotificationService
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -116,6 +117,10 @@ class RegistrationFormViewModel(
                 }
 
                 UserSessionRepository.save(context, profile)
+                val groupID = profile.primaryGroupID.trim()
+                if (groupID.isNotEmpty()) {
+                    NotificationService.syncTokenForProfile(context, groupID, profile.memberID)
+                }
                 accountCreated = true
                 showSuccess(
                     if (role == MemberRole.Driver) {

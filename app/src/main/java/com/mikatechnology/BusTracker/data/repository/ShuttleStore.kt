@@ -1,6 +1,7 @@
 package com.mikatechnology.BusTracker.data.repository
 
 import android.location.Location
+import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldPath
@@ -29,6 +30,7 @@ import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
 class ShuttleStore private constructor() {
     private val db = FirebaseFirestore.getInstance()
@@ -39,6 +41,9 @@ class ShuttleStore private constructor() {
 
     private val _driverLocation = MutableStateFlow<DriverLocation?>(null)
     val driverLocation: StateFlow<DriverLocation?> = _driverLocation.asStateFlow()
+
+    private val _driverRoute = MutableStateFlow<List<LatLng>>(emptyList())
+    val driverRoute: StateFlow<List<LatLng>> = _driverRoute.asStateFlow()
 
     private val _morningPickups = MutableStateFlow<List<MorningPickup>>(emptyList())
     val morningPickups: StateFlow<List<MorningPickup>> = _morningPickups.asStateFlow()
@@ -54,6 +59,7 @@ class ShuttleStore private constructor() {
 
     private var membersListener: ListenerRegistration? = null
     private var locationListener: ListenerRegistration? = null
+    private var routeListener: ListenerRegistration? = null
     private var attendanceListener: ListenerRegistration? = null
     private var morningPickupsListener: ListenerRegistration? = null
 
@@ -61,6 +67,7 @@ class ShuttleStore private constructor() {
     private var activeTripGroupID: String? = null
     private var activeTripDriverName: String? = null
     private var lastLocationUploadAt: Date? = null
+    private var lastAppendedRoutePoint: LatLng? = null
     private var tripAutoStopJob: Job? = null
 
     private val _plannedTripEndAt = MutableStateFlow<Date?>(null)
@@ -100,6 +107,16 @@ class ShuttleStore private constructor() {
                 _driverLocation.value = driverLocationFrom(snapshot)
             }
 
+        routeListener = db.collection("groups").document(groupID).collection("live")
+            .document("route")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    _errorMessage.value = error.localizedMessage
+                    return@addSnapshotListener
+                }
+                _driverRoute.value = routePointsFrom(snapshot?.data)
+            }
+
         attendanceListener = db.collection("groups").document(groupID)
             .collection("attendance").document(todayKey)
             .addSnapshotListener { snapshot, _ ->
@@ -122,13 +139,17 @@ class ShuttleStore private constructor() {
     fun stopListening() {
         membersListener?.remove()
         locationListener?.remove()
+        routeListener?.remove()
         attendanceListener?.remove()
         morningPickupsListener?.remove()
         membersListener = null
         locationListener = null
+        routeListener = null
         attendanceListener = null
         morningPickupsListener = null
         _morningPickups.value = emptyList()
+        _driverRoute.value = emptyList()
+        lastAppendedRoutePoint = null
         _isTripActive.value = false
         _currentActiveTripGroupID.value = null
         activeTripGroupID = null
@@ -181,6 +202,7 @@ class ShuttleStore private constructor() {
                     "isActive" to true,
                     "driverName" to driverName,
                     "tripDate" to todayKey,
+                    "approachSessionKey" to UUID.randomUUID().toString(),
                     "plannedEndAt" to Timestamp(endsAt),
                     "durationHours" to durationHours,
                     "updatedAt" to FieldValue.serverTimestamp()
@@ -189,11 +211,14 @@ class ShuttleStore private constructor() {
             )
             .await()
 
+        resetDriverRoute(groupID)
+
         _isTripActive.value = true
         _currentActiveTripGroupID.value = groupID
         activeTripGroupID = groupID
         activeTripDriverName = driverName
         lastLocationUploadAt = null
+        lastAppendedRoutePoint = null
 
         LocationTracker.setOnLocationUpdate { location ->
             scope.launch {
@@ -221,6 +246,7 @@ class ShuttleStore private constructor() {
         activeTripGroupID = null
         activeTripDriverName = null
         lastLocationUploadAt = null
+        lastAppendedRoutePoint = null
         LocationTracker.setOnLocationUpdate(null)
         LocationTracker.stopTracking()
 
@@ -315,6 +341,65 @@ class ShuttleStore private constructor() {
                 com.google.firebase.firestore.SetOptions.merge()
             )
             .await()
+
+        if (isActive) {
+            appendRoutePoint(groupID, LatLng(location.latitude, location.longitude))
+        }
+    }
+
+    private suspend fun resetDriverRoute(groupID: String) {
+        _driverRoute.value = emptyList()
+        lastAppendedRoutePoint = null
+        db.collection("groups").document(groupID).collection("live").document("route")
+            .set(
+                mapOf(
+                    "tripDate" to todayKey,
+                    "points" to emptyList<Map<String, Double>>()
+                )
+            )
+            .await()
+    }
+
+    private suspend fun appendRoutePoint(groupID: String, coordinate: LatLng) {
+        lastAppendedRoutePoint?.let { last ->
+            val results = FloatArray(1)
+            Location.distanceBetween(
+                last.latitude,
+                last.longitude,
+                coordinate.latitude,
+                coordinate.longitude,
+                results
+            )
+            if (results[0] < MIN_ROUTE_POINT_DISTANCE_METERS) return
+        }
+
+        lastAppendedRoutePoint = coordinate
+        _driverRoute.value = _driverRoute.value + coordinate
+
+        db.collection("groups").document(groupID).collection("live").document("route")
+            .set(
+                mapOf(
+                    "tripDate" to todayKey,
+                    "points" to FieldValue.arrayUnion(
+                        mapOf(
+                            "latitude" to coordinate.latitude,
+                            "longitude" to coordinate.longitude
+                        )
+                    )
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            .await()
+    }
+
+    private fun routePointsFrom(data: Map<String, Any>?): List<LatLng> {
+        val rawPoints = data?.get("points") as? List<*> ?: return emptyList()
+        return rawPoints.mapNotNull { entry ->
+            val point = entry as? Map<*, *> ?: return@mapNotNull null
+            val lat = (point["latitude"] as? Number)?.toDouble() ?: return@mapNotNull null
+            val lng = (point["longitude"] as? Number)?.toDouble() ?: return@mapNotNull null
+            LatLng(lat, lng)
+        }
     }
 
     private fun mergeMembers(fetched: List<ShuttleMember>) {
@@ -533,6 +618,7 @@ class ShuttleStore private constructor() {
     }
 
     companion object {
+        private const val MIN_ROUTE_POINT_DISTANCE_METERS = 20f
         val shared = ShuttleStore()
     }
 }

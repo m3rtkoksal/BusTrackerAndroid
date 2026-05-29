@@ -44,7 +44,9 @@ import com.google.maps.android.compose.MapType
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MarkerComposable
 import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import androidx.compose.ui.graphics.Color
 import com.mikatechnology.BusTracker.BuildConfig
 import com.mikatechnology.BusTracker.data.model.DriverLocation
 import com.mikatechnology.BusTracker.data.model.MapDefaults
@@ -57,11 +59,14 @@ private const val TAG = "ShuttleMapView"
 @Composable
 fun ShuttleMapView(
     driverLocation: DriverLocation?,
+    driverRoute: List<LatLng> = emptyList(),
+    isTripActive: Boolean = false,
     morningPickups: List<MorningPickup>,
     modifier: Modifier = Modifier,
     onCameraReady: (ShuttleMapCamera) -> Unit = {},
     onMapClick: ((LatLng) -> Unit)? = null,
-    selectedCoordinate: LatLng? = null
+    selectedCoordinate: LatLng? = null,
+    autoFitCameraOnUpdate: Boolean = true
 ) {
     if (BuildConfig.MAPS_API_KEY.isBlank()) {
         MapApiKeyMissingBanner(modifier = modifier)
@@ -95,7 +100,9 @@ fun ShuttleMapView(
             morningPickups = morningPickups,
             extraCoordinates = listOfNotNull(selectedCoordinate)
         )
-        camera.fitCamera(animated = false)
+        if (autoFitCameraOnUpdate) {
+            camera.fitCamera(animated = false)
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -126,6 +133,15 @@ fun ShuttleMapView(
                 map.setOnMapLoadedCallback {
                     Log.d(TAG, "Map tiles callback")
                 }
+            }
+
+            if (DriverRouteDisplay.shouldDrawPolyline(driverRoute, driverLocation, isTripActive)) {
+                Polyline(
+                    points = DriverRouteDisplay.polylinePoints(driverRoute, driverLocation, isTripActive),
+                    color = Color(0xBF00FFCC),
+                    width = 10f,
+                    geodesic = true
+                )
             }
 
             driverLocation?.let { location ->
@@ -246,6 +262,15 @@ class ShuttleMapCamera(
         moveCamera(CameraUpdateFactory.zoomTo(newZoom), animated = true)
     }
 
+    suspend fun centerOn(coordinate: LatLng, zoom: Float = 15f, animated: Boolean = true) {
+        moveCamera(
+            CameraUpdateFactory.newCameraPosition(
+                CameraPosition.fromLatLngZoom(coordinate, zoom)
+            ),
+            animated
+        )
+    }
+
     private suspend fun moveCamera(
         update: com.google.android.gms.maps.CameraUpdate,
         animated: Boolean
@@ -275,9 +300,9 @@ private fun PickupMarkerView(
     modifier: Modifier = Modifier
 ) {
     val pinColor = when (style) {
-        PickupMarkerStyle.Saved -> NeonTheme.Primary
-        PickupMarkerStyle.SavedFaded -> NeonTheme.Primary.copy(alpha = 0.45f)
-        PickupMarkerStyle.Draft -> NeonTheme.Secondary
+        PickupMarkerStyle.Saved -> NeonTheme.MapPickupPin
+        PickupMarkerStyle.SavedFaded -> NeonTheme.MapPickupPin.copy(alpha = 0.45f)
+        PickupMarkerStyle.Draft -> NeonTheme.MapPickupPin
     }
     val iconSize = when (style) {
         PickupMarkerStyle.Draft -> 36.dp
@@ -326,7 +351,7 @@ fun DriverMarkerView(driverName: String) {
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(NeonTheme.Secondary.copy(alpha = 0.15f))
+                    .background(NeonTheme.MapDriverPin.copy(alpha = 0.15f))
             )
 
             Box(
@@ -335,7 +360,7 @@ fun DriverMarkerView(driverName: String) {
                     .clip(CircleShape)
                     .border(
                         width = 1.dp,
-                        color = NeonTheme.Secondary.copy(alpha = 0.35f),
+                        color = NeonTheme.MapDriverPin.copy(alpha = 0.35f),
                         shape = CircleShape
                     )
             )
@@ -343,13 +368,13 @@ fun DriverMarkerView(driverName: String) {
             Icon(
                 imageVector = Icons.Filled.Navigation,
                 contentDescription = null,
-                tint = NeonTheme.Secondary,
+                tint = NeonTheme.MapDriverPin,
                 modifier = Modifier
                     .size(28.dp)
                     .shadow(
                         elevation = 8.dp,
-                        spotColor = NeonTheme.Secondary.copy(alpha = 0.8f),
-                        ambientColor = NeonTheme.Secondary.copy(alpha = 0.4f)
+                        spotColor = NeonTheme.MapDriverPin.copy(alpha = 0.8f),
+                        ambientColor = NeonTheme.MapDriverPin.copy(alpha = 0.4f)
                     )
             )
         }
@@ -367,7 +392,7 @@ fun DriverMarkerView(driverName: String) {
                     .background(NeonTheme.SurfaceContainer.copy(alpha = 0.92f))
                     .border(
                         width = 1.dp,
-                        color = NeonTheme.Secondary.copy(alpha = 0.35f),
+                        color = NeonTheme.MapDriverPin.copy(alpha = 0.35f),
                         shape = RoundedCornerShape(4.dp)
                     )
                     .padding(horizontal = 6.dp, vertical = 2.dp)

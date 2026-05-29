@@ -6,6 +6,10 @@ data class DriverPassengerStats(
     val notComing: Int,
     val unknown: Int
 ) {
+    /** Gelmiyorum dışındaki tüm yolcular (geliyorum + belirtmedi). */
+    val capacityOccupied: Int
+        get() = coming + unknown
+
     val comingProgress: Double
-        get() = if (total > 0) coming.toDouble() / total else 0.0
+        get() = if (total > 0) capacityOccupied.toDouble() / total else 0.0
 }

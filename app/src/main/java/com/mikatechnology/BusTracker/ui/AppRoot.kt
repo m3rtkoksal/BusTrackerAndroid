@@ -1,5 +1,9 @@
 package com.mikatechnology.BusTracker.ui
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -8,13 +12,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mikatechnology.BusTracker.data.model.MemberRole
+import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
+import com.mikatechnology.BusTracker.services.NotificationService
 import com.mikatechnology.BusTracker.ui.driver.DriverHomeView
 import com.mikatechnology.BusTracker.ui.passenger.PassengerHomeView
 import com.mikatechnology.BusTracker.ui.registration.RegistrationFlowScreen
@@ -27,9 +35,33 @@ fun AppRoot() {
     val isSessionLoaded by UserSessionRepository.isSessionLoaded.collectAsStateWithLifecycle()
 
     var showLogin by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val current = profile
+            if (current != null) {
+                scope.launch { syncPushToken(context, current) }
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         UserSessionRepository.load(context)
+    }
+
+    LaunchedEffect(profile?.memberID, profile?.primaryGroupID) {
+        val current = profile ?: return@LaunchedEffect
+        NotificationService.createNotificationChannel(context)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !NotificationService.hasNotificationPermission(context)
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return@LaunchedEffect
+        }
+        syncPushToken(context, current)
     }
 
     // Wait until we have checked local session before deciding what to show
@@ -62,4 +94,10 @@ fun AppRoot() {
             MemberRole.Passenger -> PassengerHomeView(profile = currentProfile)
         }
     }
+}
+
+private suspend fun syncPushToken(context: android.content.Context, profile: UserProfile) {
+    val groupID = profile.primaryGroupID.trim()
+    if (groupID.isEmpty()) return
+    NotificationService.syncTokenForProfile(context, groupID, profile.memberID)
 }

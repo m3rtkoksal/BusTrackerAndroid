@@ -3,11 +3,12 @@ package com.mikatechnology.BusTracker.ui.services
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -65,19 +66,14 @@ fun MyServicesScreen(
             .fillMaxSize()
             .background(NeonTheme.Background)
     ) {
-        // Minimal Top Bar - only back button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .height(56.dp)
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Geri"
-                )
-            }
+            MyServicesBackButton(onClick = onBack)
         }
 
         Column(
@@ -384,3 +380,24 @@ data class ServiceDisplay(
     val isActive: Boolean,
     val departure: String?
 )
+
+@Composable
+private fun MyServicesBackButton(onClick: () -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        modifier = Modifier
+            .clip(shape)
+            .background(NeonTheme.SurfaceContainer)
+            .border(1.dp, NeonTheme.Secondary.copy(alpha = 0.35f), shape)
+            .clickable(onClick = onClick)
+            .padding(10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.ChevronLeft,
+            contentDescription = "Geri",
+            tint = NeonTheme.Secondary,
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}

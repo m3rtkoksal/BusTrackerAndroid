@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.android.gms.maps.model.LatLng
 import com.mikatechnology.BusTracker.data.model.DriverLocation
 import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.ui.map.NeonMapOverlay
@@ -55,6 +56,7 @@ private val WarningColor = androidx.compose.ui.graphics.Color(0xFFFFE04A)
 @Composable
 fun DriverMapTabView(
     driverLocation: DriverLocation?,
+    driverRoute: List<LatLng> = emptyList(),
     morningPickups: List<MorningPickup>,
     stats: DriverPassengerStats,
     isTripActive: Boolean,
@@ -72,6 +74,8 @@ fun DriverMapTabView(
     Box(modifier = modifier.fillMaxSize()) {
         ShuttleMapView(
             driverLocation = driverLocation,
+            driverRoute = driverRoute,
+            isTripActive = isTripActive,
             morningPickups = morningPickups,
             modifier = Modifier.fillMaxSize(),
             onCameraReady = { camera ->
@@ -129,9 +133,10 @@ fun DriverMapTabView(
             ) {
                 BentoCard(
                     title = "KAPASİTE",
-                    value = stats.coming.toString(),
+                    value = stats.capacityOccupied.toString(),
                     suffix = "/ ${stats.total}",
                     valueColor = NeonTheme.Primary,
+                    footnote = if (stats.unknown > 0) "${stats.unknown} belirtmedi" else null,
                     modifier = Modifier.weight(1f)
                 )
                 BentoCard(

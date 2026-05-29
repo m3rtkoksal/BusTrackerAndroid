@@ -1,5 +1,6 @@
 package com.mikatechnology.BusTracker.ui.passenger
 
+import android.Manifest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,9 +42,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.gms.maps.model.LatLng
 import com.mikatechnology.BusTracker.data.model.DriverLocation
 import com.mikatechnology.BusTracker.data.model.MorningPickup
+import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.ui.map.NeonMapOverlay
 import com.mikatechnology.BusTracker.ui.map.ShuttleMapCamera
 import com.mikatechnology.BusTracker.ui.map.ShuttleMapView
@@ -55,6 +61,7 @@ import kotlinx.coroutines.launch
 fun PassengerMapTabView(
     groupName: String,
     driverLocation: DriverLocation?,
+    driverRoute: List<LatLng>,
     draftCoordinate: LatLng?,
     savedPickup: MorningPickup?,
     isTripActive: Boolean,
@@ -63,8 +70,38 @@ fun PassengerMapTabView(
     onSavePickup: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var mapCamera by remember { mutableStateOf<ShuttleMapCamera?>(null) }
     val scope = rememberCoroutineScope()
+    val deviceLocation by LocationTracker.currentLocation.collectAsState()
+    var pendingCenterOnPassenger by remember { mutableStateOf(false) }
+    var hasInitialCentered by remember { mutableStateOf(false) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        LocationTracker.refreshAuthorizationStatus(context)
+        if (granted) {
+            pendingCenterOnPassenger = true
+            LocationTracker.requestSingleLocation(context)
+        }
+    }
+
+    fun requestPassengerLocation() {
+        LocationTracker.refreshAuthorizationStatus(context)
+        if (LocationTracker.hasFineLocation(context)) {
+            pendingCenterOnPassenger = true
+            LocationTracker.requestSingleLocation(context)
+            deviceLocation?.let { loc ->
+                val latLng = LatLng(loc.latitude, loc.longitude)
+                onMapClick(latLng)
+                scope.launch { mapCamera?.centerOn(latLng, animated = true) }
+                pendingCenterOnPassenger = false
+            }
+        } else {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
 
     val morningPickupsForMap = remember(savedPickup) {
         savedPickup?.let { listOf(it) } ?: emptyList()
@@ -78,11 +115,29 @@ fun PassengerMapTabView(
         )
     }
 
+    LaunchedEffect(mapCamera) {
+        if (hasInitialCentered || mapCamera == null) return@LaunchedEffect
+        hasInitialCentered = true
+        requestPassengerLocation()
+    }
+
+    LaunchedEffect(deviceLocation, pendingCenterOnPassenger) {
+        if (!pendingCenterOnPassenger) return@LaunchedEffect
+        val loc = deviceLocation ?: return@LaunchedEffect
+        pendingCenterOnPassenger = false
+        val latLng = LatLng(loc.latitude, loc.longitude)
+        onMapClick(latLng)
+        scope.launch { mapCamera?.centerOn(latLng, animated = true) }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         ShuttleMapView(
             driverLocation = driverLocation,
+            driverRoute = driverRoute,
+            isTripActive = isTripActive,
             morningPickups = morningPickupsForMap,
             selectedCoordinate = draftCoordinate,
+            autoFitCameraOnUpdate = false,
             onMapClick = onMapClick,
             onCameraReady = { mapCamera = it },
             modifier = Modifier.fillMaxSize()
@@ -120,7 +175,7 @@ fun PassengerMapTabView(
                     MapControlButton(
                         icon = Icons.Default.MyLocation,
                         highlighted = true,
-                        onClick = { scope.launch { mapCamera?.fitCamera(animated = true) } }
+                        onClick = { requestPassengerLocation() }
                     )
                 }
             }
@@ -158,6 +213,7 @@ fun PassengerMapTabView(
                     color = NeonTheme.OnSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
                 )
+
                 Button(
                     onClick = onSavePickup,
                     enabled = !isSaving && draftCoordinate != null,

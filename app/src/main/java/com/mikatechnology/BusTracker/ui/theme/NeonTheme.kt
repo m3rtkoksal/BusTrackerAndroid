@@ -27,6 +27,10 @@ object NeonTheme {
     val Secondary = Color(0xFF00FFCC)
     val Outline = Color(0xFF5A5068)
     val Error = Color(0xFFFF4444)
+    /** Harita: sürücü canlı konum pini */
+    val MapDriverPin = Color(0xFF4DA3FF)
+    /** Harita: yolcu biniş pini */
+    val MapPickupPin = Color(0xFFFF4444)
 }
 
 @Composable

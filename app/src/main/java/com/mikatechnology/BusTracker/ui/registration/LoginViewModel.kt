@@ -9,6 +9,7 @@ import com.mikatechnology.BusTracker.data.repository.AuthError
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
+import com.mikatechnology.BusTracker.services.NotificationService
 import kotlinx.coroutines.launch
 
 class LoginViewModel : BaseViewModel() {
@@ -37,6 +38,10 @@ class LoginViewModel : BaseViewModel() {
                 val profile = ShuttleRepository.shared.fetchUserProfile(userId)
                 if (profile != null) {
                     UserSessionRepository.save(context, profile)
+                    val groupID = profile.primaryGroupID.trim()
+                    if (groupID.isNotEmpty()) {
+                        NotificationService.syncTokenForProfile(context, groupID, profile.memberID)
+                    }
                 } else {
                     showError("Bu Google hesabıyla kayıtlı profil bulunamadı. Önce hesap oluşturun.")
                     AuthRepository.signOut()

@@ -27,9 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.Composable
@@ -56,6 +54,7 @@ import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.ui.map.resolveDriverMapLocation
 import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
+import com.mikatechnology.BusTracker.ui.shared.RoleNavBar
 import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountFooter
 import com.mikatechnology.BusTracker.ui.settings.SettingsSignOutRow
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
@@ -77,6 +76,7 @@ fun DriverHomeView(
     val members by ShuttleStore.shared.members.collectAsStateWithLifecycle()
     val isTripActive by ShuttleStore.shared.isTripActive.collectAsStateWithLifecycle()
     val driverLocation by ShuttleStore.shared.driverLocation.collectAsStateWithLifecycle()
+    val driverRoute by ShuttleStore.shared.driverRoute.collectAsStateWithLifecycle()
     val deviceLocation by LocationTracker.currentLocation.collectAsStateWithLifecycle()
     val morningPickups by ShuttleStore.shared.morningPickups.collectAsStateWithLifecycle()
     val locationAuthStatus by LocationTracker.authorizationStatus.collectAsStateWithLifecycle()
@@ -166,6 +166,7 @@ fun DriverHomeView(
                             key("driver_map_tab") {
                                 DriverMapTabView(
                                     driverLocation = mapDriverLocation,
+                                    driverRoute = driverRoute,
                                     morningPickups = filteredPickups,
                                     stats = stats,
                                     isTripActive = isTripActive
@@ -240,56 +241,28 @@ private fun DriverTopBar(
     isTripActive: Boolean,
     onMenuClick: () -> Unit = {}
 ) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .background(NeonTheme.Background.copy(alpha = 0.95f))
-                .padding(horizontal = 24.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onMenuClick,
-                modifier = Modifier.size(48.dp)
+    RoleNavBar(onMenuClick = onMenuClick) {
+        if (isTripActive) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Dashboard,
-                    contentDescription = "Servislerim",
-                    tint = NeonTheme.OnSurface,
-                    modifier = Modifier.size(24.dp)
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(NeonTheme.Secondary)
+                        .shadow(4.dp, spotColor = NeonTheme.Secondary.copy(alpha = 0.8f))
+                )
+                Text(
+                    text = "AKTİF",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                    color = NeonTheme.Secondary
                 )
             }
-            Spacer(modifier = Modifier.weight(1f))
-            if (isTripActive) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(NeonTheme.Secondary)
-                            .shadow(4.dp, spotColor = NeonTheme.Secondary.copy(alpha = 0.8f))
-                    )
-                    Text(
-                        text = "AKTİF",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp,
-                        color = NeonTheme.Secondary
-                    )
-                }
-            }
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .shadow(6.dp, spotColor = NeonTheme.Primary.copy(alpha = 0.1f))
-                .background(NeonTheme.Primary.copy(alpha = 0.3f))
-        )
     }
 }
 
