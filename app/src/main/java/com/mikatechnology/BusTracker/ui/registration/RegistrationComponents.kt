@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -230,7 +231,8 @@ fun NeonFormField(
     onValueChange: (String) -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
-    keyboardType: KeyboardType = KeyboardType.Text
+    keyboardType: KeyboardType = KeyboardType.Text,
+    errorText: String? = null
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
@@ -244,18 +246,34 @@ fun NeonFormField(
             onValueChange = onValueChange,
             placeholder = { Text(placeholder, color = NeonTheme.OnSurfaceVariant) },
             singleLine = true,
+            isError = errorText != null,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = NeonTheme.OnSurface,
                 unfocusedTextColor = NeonTheme.OnSurface,
-                focusedBorderColor = NeonTheme.Secondary.copy(alpha = 0.5f),
-                unfocusedBorderColor = NeonTheme.Outline.copy(alpha = 0.5f),
+                focusedBorderColor = if (errorText != null) {
+                    NeonTheme.Error.copy(alpha = 0.8f)
+                } else {
+                    NeonTheme.Secondary.copy(alpha = 0.5f)
+                },
+                unfocusedBorderColor = if (errorText != null) {
+                    NeonTheme.Error.copy(alpha = 0.6f)
+                } else {
+                    NeonTheme.Outline.copy(alpha = 0.5f)
+                },
                 focusedContainerColor = NeonTheme.SurfaceBright.copy(alpha = 0.8f),
                 unfocusedContainerColor = NeonTheme.SurfaceBright.copy(alpha = 0.8f)
             )
         )
+        if (errorText != null) {
+            Text(
+                text = errorText,
+                style = MaterialTheme.typography.bodySmall,
+                color = NeonTheme.Error
+            )
+        }
     }
 }
 
@@ -365,13 +383,21 @@ fun GoogleSignInButton(
     loading: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val isInteractive = enabled && !loading
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(if (enabled) NeonTheme.SurfaceBright else NeonTheme.SurfaceBright.copy(alpha = 0.5f))
-            .border(1.dp, NeonTheme.Outline.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-            .clickable(enabled = enabled && !loading, onClick = onClick)
+            .background(
+                if (isInteractive) NeonTheme.SurfaceBright
+                else NeonTheme.SurfaceBright.copy(alpha = 0.35f)
+            )
+            .border(
+                1.dp,
+                NeonTheme.Outline.copy(alpha = if (isInteractive) 0.4f else 0.2f),
+                RoundedCornerShape(12.dp)
+            )
+            .clickable(enabled = isInteractive, onClick = onClick)
             .padding(vertical = 16.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -382,7 +408,11 @@ fun GoogleSignInButton(
                 text = text,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.5.sp,
-                color = NeonTheme.OnSurface
+                color = if (isInteractive) {
+                    NeonTheme.OnSurface
+                } else {
+                    NeonTheme.OnSurface.copy(alpha = 0.45f)
+                }
             )
         }
     }

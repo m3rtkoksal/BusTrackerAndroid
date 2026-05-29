@@ -10,6 +10,7 @@ import com.mikatechnology.BusTracker.base.NavigationBarStyle
 import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.repository.AuthError
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
+import com.mikatechnology.BusTracker.data.repository.ShuttleError
 import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
 import com.mikatechnology.BusTracker.services.NotificationService
@@ -29,6 +30,9 @@ class RegistrationFormViewModel(
 
     private val _serviceField = MutableStateFlow("")
     val serviceField: StateFlow<String> = _serviceField.asStateFlow()
+
+    private val _serviceFieldError = MutableStateFlow<String?>(null)
+    val serviceFieldError: StateFlow<String?> = _serviceFieldError.asStateFlow()
 
     init {
         configureScreen(
@@ -76,15 +80,24 @@ class RegistrationFormViewModel(
         }
 
     val canSubmit: Boolean
-        get() {
-            if (_name.value.trim().isEmpty()) return false
-            val trimmed = _serviceField.value.trim()
+        get() = isRegistrationFormComplete(_name.value, _serviceField.value, role)
+
+    companion object {
+        fun isRegistrationFormComplete(
+            name: String,
+            serviceField: String,
+            role: MemberRole
+        ): Boolean {
+            if (name.trim().isEmpty()) return false
+            val trimmedService = serviceField.trim()
             return if (role == MemberRole.Driver) {
-                trimmed.isNotEmpty()
+                trimmedService.isNotEmpty()
             } else {
-                _serviceField.value.length >= 4
+                // Yolcu: servis kodu girilmeden Google kayıt kapalı
+                trimmedService.length >= 4
             }
         }
+    }
 
     fun onNameChange(value: String) {
         _name.value = value
@@ -96,10 +109,52 @@ class RegistrationFormViewModel(
         } else {
             value
         }
+        _serviceFieldError.value = null
+    }
+
+    /** Google kayıt öncesi yerel doğrulama; hata servis alanı altında gösterilir. */
+    fun validateBeforeGoogleSignIn(): Boolean {
+        _serviceFieldError.value = null
+        if (_name.value.trim().isEmpty()) {
+            showError("Kayıt için adınızı girin.")
+            return false
+        }
+        val trimmedService = _serviceField.value.trim()
+        if (role == MemberRole.Passenger) {
+            if (trimmedService.isEmpty()) {
+                _serviceFieldError.value = "Servis kodu girmedin."
+                return false
+            }
+            if (trimmedService.length < 4) {
+                _serviceFieldError.value = "Servis kodu en az 4 karakter olmalı."
+                return false
+            }
+        } else if (trimmedService.isEmpty()) {
+            _serviceFieldError.value = "Servis adı girmedin."
+            return false
+        }
+        return true
+    }
+
+    private fun serviceFieldErrorMessage(error: ShuttleError): String = when (error) {
+        is ShuttleError.GroupNotFound -> error.message ?: "Bu servis kodu bulunamadı."
+        is ShuttleError.InvalidInput -> error.message ?: "Geçersiz servis kodu."
+        is ShuttleError.AlreadyInGroup -> error.message ?: "Zaten bir servise kayıtlısınız."
+        is ShuttleError.NotAuthenticated -> error.message ?: "Giriş yapmanız gerekiyor."
+    }
+
+    private fun applyPassengerServiceFieldError(error: Exception): Boolean {
+        if (role != MemberRole.Passenger) return false
+        val shuttleError = error as? ShuttleError ?: return false
+        _serviceFieldError.value = serviceFieldErrorMessage(shuttleError)
+        return true
     }
 
     fun createAccountWithGoogle(context: Context, data: Intent?) {
         viewModelScope.launch {
+            if (!canSubmit) {
+                return@launch
+            }
             AuthRepository.setCompletingRegistration(true)
             var accountCreated = false
             try {
@@ -108,6 +163,16 @@ class RegistrationFormViewModel(
 
                 if (_name.value.trim().isEmpty() && !googleResult.displayName.isNullOrBlank()) {
                     _name.value = googleResult.displayName
+                }
+
+                if (role == MemberRole.Passenger) {
+                    try {
+                        shuttleRepository.validatePassengerGroupCode(_serviceField.value)
+                    } catch (error: ShuttleError) {
+                        _serviceFieldError.value = serviceFieldErrorMessage(error)
+                        AuthRepository.signOut()
+                        return@launch
+                    }
                 }
 
                 val profile = if (role == MemberRole.Driver) {
@@ -132,7 +197,9 @@ class RegistrationFormViewModel(
             } catch (_: AuthError.SignInCancelled) {
                 // Kullanıcı iptal etti.
             } catch (error: Exception) {
-                showError(error.localizedMessage ?: "Hesap oluşturulamadı.")
+                if (!applyPassengerServiceFieldError(error)) {
+                    showError(error.localizedMessage ?: "Hesap oluşturulamadı.")
+                }
                 if (UserSessionRepository.profile.value == null) {
                     AuthRepository.signOut()
                 }

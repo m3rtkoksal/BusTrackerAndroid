@@ -13,7 +13,7 @@ import java.util.UUID
 
 sealed class ShuttleError(message: String) : Exception(message) {
     class NotAuthenticated : ShuttleError("Giriş yapmanız gerekiyor.")
-    class GroupNotFound : ShuttleError("Bu kodla eşleşen servis bulunamadı.")
+    class GroupNotFound : ShuttleError("Bu servis kodu bulunamadı.")
     class AlreadyInGroup : ShuttleError("Zaten bir servise kayıtlısınız.")
     class InvalidInput(message: String) : ShuttleError(message)
 }
@@ -86,6 +86,25 @@ class ShuttleRepository {
             return profile
         } finally {
             _isLoading.value = false
+        }
+    }
+
+    /** Yolcu kaydı: kod Firestore'da var mı (Google öncesi kontrol). */
+    suspend fun validatePassengerGroupCode(code: String) {
+        val trimmedCode = code.trim().uppercase()
+        if (trimmedCode.isEmpty()) {
+            throw ShuttleError.InvalidInput("Servis kodu girmedin.")
+        }
+        if (trimmedCode.length < 4) {
+            throw ShuttleError.InvalidInput("Servis kodu en az 4 karakter olmalı.")
+        }
+        val snapshot = db.collection("groups")
+            .whereEqualTo("code", trimmedCode)
+            .limit(1)
+            .get()
+            .await()
+        if (snapshot.documents.isEmpty()) {
+            throw ShuttleError.GroupNotFound()
         }
     }
 

@@ -177,6 +177,7 @@ class DriverHomeViewModel(
                 UserSessionRepository.signOut(context)
             } catch (error: Exception) {
                 showError(error.localizedMessage ?: "Çıkış yapılamadı.")
+            } finally {
                 setLoading(false)
             }
         }
@@ -196,6 +197,7 @@ class DriverHomeViewModel(
                 showSuccess("Hesabınız başarıyla silindi.")
             } catch (error: Exception) {
                 showError("Hesap silinirken bir hata oluştu: ${error.localizedMessage ?: "Bilinmeyen hata"}")
+            } finally {
                 setLoading(false)
             }
         }

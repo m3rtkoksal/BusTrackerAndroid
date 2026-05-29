@@ -35,13 +35,14 @@ fun RegistrationFormScreen(
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
-
     val name by viewModel.name.collectAsStateWithLifecycle()
     val serviceField by viewModel.serviceField.collectAsStateWithLifecycle()
     val authLoading by AuthRepository.isLoading.collectAsStateWithLifecycle()
     val shuttleLoading by ShuttleRepository.shared.isLoading.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val serviceFieldError by viewModel.serviceFieldError.collectAsStateWithLifecycle()
     val isBusy = authLoading || shuttleLoading || uiState.isLoading
+    val canTapGoogleSignIn = activity != null && !isBusy
 
     val heroIcon = if (role == MemberRole.Driver) Icons.Default.DirectionsCar else Icons.Default.Person
 
@@ -82,7 +83,8 @@ fun RegistrationFormScreen(
                         title = viewModel.serviceFieldTitle,
                         value = serviceField,
                         onValueChange = viewModel::onServiceFieldChange,
-                        placeholder = viewModel.serviceFieldPrompt
+                        placeholder = viewModel.serviceFieldPrompt,
+                        errorText = serviceFieldError
                     )
 
                     androidx.compose.material3.Text(
@@ -100,10 +102,14 @@ fun RegistrationFormScreen(
                     GoogleSignInButton(
                         text = "Google ile Kayıt Ol",
                         loading = isBusy,
-                        enabled = viewModel.canSubmit && activity != null,
+                        enabled = canTapGoogleSignIn,
                         onClick = {
-                            activity?.let {
-                                googleLauncher.launch(GoogleSignInHelper.createSignInIntent(it))
+                            if (viewModel.validateBeforeGoogleSignIn()) {
+                                activity?.let {
+                                    googleLauncher.launch(
+                                        GoogleSignInHelper.createSignInIntent(it)
+                                    )
+                                }
                             }
                         }
                     )

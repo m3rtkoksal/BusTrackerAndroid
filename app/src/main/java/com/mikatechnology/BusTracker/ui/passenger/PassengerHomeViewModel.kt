@@ -114,6 +114,7 @@ class PassengerHomeViewModel(
                 UserSessionRepository.signOut(context)
             } catch (e: Exception) {
                 showError(e.localizedMessage ?: "Çıkış yapılamadı.")
+            } finally {
                 setLoading(false)
             }
         }
@@ -130,6 +131,7 @@ class PassengerHomeViewModel(
                 showSuccess("Hesabınız başarıyla silindi.")
             } catch (e: Exception) {
                 showError("Hesap silinirken bir hata oluştu: ${e.localizedMessage ?: "Bilinmeyen hata"}")
+            } finally {
                 setLoading(false)
             }
         }

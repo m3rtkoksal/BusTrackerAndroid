@@ -77,7 +77,8 @@ object UserSessionRepository {
 
     fun clear(context: Context) {
         _profile.value = null
-        _isSessionLoaded.value = false
+        // Oturum kontrolü tamamlandı; kayıt/giriş ekranına geç (AppRoot loader'da takılmasın).
+        _isSessionLoaded.value = true
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()
