@@ -165,6 +165,9 @@ class ShuttleStore private constructor() {
     suspend fun startTrip(groupID: String, driverName: String, durationHours: Double) {
         if (_isTripActive.value) return
         require(durationHours > 0) { "Servis süresi seçin." }
+        require(LocationTracker.canDriverStartTrip()) {
+            "Servisi başlatmak için Ayarlar'dan \"Her zaman\" konum iznini açmanız gerekir."
+        }
 
         val endsAt = Date(System.currentTimeMillis() + (durationHours * 3_600_000).toLong())
         _plannedTripEndAt.value = endsAt

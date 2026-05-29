@@ -72,6 +72,7 @@ fun TripDurationBottomSheet(
     selectedHours: Double,
     onSelectedHoursChange: (Double) -> Unit,
     isLoading: Boolean,
+    canStartTrip: Boolean,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -110,9 +111,13 @@ fun TripDurationBottomSheet(
         )
 
         Text(
-            text = "Konum paylaşımı seçilen süre sonunda otomatik durur ve servis kapanır.",
+            text = if (canStartTrip) {
+                "Sefer boyunca konumunuz yolculara paylaşılır. Paylaşım süre sonunda otomatik durur."
+            } else {
+                "\"Her zaman\" konum izni olmadan servis başlatılamaz. Önce İZİN VER adımlarını tamamlayın."
+            },
             fontSize = 14.sp,
-            color = NeonTheme.OnSurfaceVariant,
+            color = if (canStartTrip) NeonTheme.OnSurfaceVariant else NeonTheme.Error,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 20.dp)
         )
@@ -149,7 +154,7 @@ fun TripDurationBottomSheet(
                 .clip(RoundedCornerShape(12.dp))
                 .background(NeonTheme.SurfaceContainerHigh)
                 .border(1.dp, NeonTheme.Primary.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                .clickable(enabled = !isLoading, onClick = onConfirm)
+                .clickable(enabled = canStartTrip && !isLoading, onClick = onConfirm)
                 .padding(vertical = 18.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -165,7 +170,7 @@ fun TripDurationBottomSheet(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 1.5.sp,
-                    color = NeonTheme.Primary
+                    color = if (canStartTrip) NeonTheme.Primary else NeonTheme.OnSurfaceVariant.copy(alpha = 0.5f)
                 )
             }
         }

@@ -54,6 +54,16 @@ object AuthRepository {
             }
             throw AuthError.SignInFailed(googleSignInErrorMessage(error))
         } catch (error: Exception) {
+            val message = error.message.orEmpty()
+            if (message.contains("are blocked", ignoreCase = true)) {
+                throw AuthError.SignInFailed(
+                    "Google Cloud API anahtarı bu uygulamayı engelliyor. " +
+                        "console.cloud.google.com → APIs & Credentials → " +
+                        "\"Android key (auto created by Firebase)\" → Application restrictions → " +
+                        "Android apps altına paket com.mikatechnology.BusTracker ve " +
+                        "debug + release SHA-1 ekleyin (docs/ANDROID_GOOGLE_SIGNIN_FIX.md)."
+                )
+            }
             throw AuthError.SignInFailed(error.message ?: "Google ile giriş başarısız.")
         } finally {
             _isLoading.value = false
@@ -82,10 +92,9 @@ object AuthRepository {
     private fun googleSignInErrorMessage(error: ApiException): String {
         return when (error.statusCode) {
             10 -> """
-                Google yapılandırma hatası (kod 10).
-                Firebase Console → Proje ayarları → Android uygulamanız → SHA-1 parmak izi ekleyin.
-                Android Studio: Gradle → :app → signingReport ile debug SHA-1 alın.
-                Sonra google-services.json dosyasını yeniden indirip projeye koyun.
+                Google yapılandırma hatası (kod 10): Bu APK'nın imza SHA-1'i Firebase'de yok.
+                Play Store'dan indirdiyseniz: Play Console → App integrity → App signing key → SHA-1'i Firebase Android uygulamasına ekleyin.
+                Studio/APK ile test ediyorsanız: debug veya release (Untitled.jks) SHA-1 ekli olmalı.
             """.trim().replace("\n", " ")
 
             7 -> "İnternet bağlantısı yok. Bağlantınızı kontrol edin."

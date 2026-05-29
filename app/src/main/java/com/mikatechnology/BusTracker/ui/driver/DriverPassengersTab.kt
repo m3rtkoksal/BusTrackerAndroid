@@ -42,7 +42,9 @@ import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.ShuttleMember
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.services.LocationAuthStatus
+import com.mikatechnology.BusTracker.services.LocationPermissionRole
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
+import com.mikatechnology.BusTracker.util.openAppSettings
 
 private val DangerColor = NeonTheme.Error
 private val WarningColor = androidx.compose.ui.graphics.Color(0xFFFFE04A)
@@ -57,6 +59,8 @@ fun DriverPassengersTab(
     locationAuthStatus: LocationAuthStatus,
     onToggleTrip: () -> Unit,
     onCopyCode: () -> Unit,
+    onRequestForegroundPermission: () -> Unit = {},
+    onRequestAlwaysPermission: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -123,18 +127,26 @@ fun DriverPassengersTab(
             PassengerListSection(passengers = passengers)
         }
 
-        if (locationAuthStatus.isDenied) {
-            Text(
-                text = "Konum izni kapalı. Ayarlar'dan izin verin.",
-                fontSize = 12.sp,
-                color = DangerColor
+        when {
+            locationAuthStatus.isDenied -> LocationPermissionBanner(
+                message = "Konum izni kapalı. Servis başlatmak ve konum paylaşmak için izin gerekli.",
+                actionColor = DangerColor,
+                primaryLabel = "İzin ver",
+                onPrimaryAction = onRequestForegroundPermission,
+                secondaryLabel = "Ayarlara git",
+                onSecondaryAction = { openAppSettings(context) }
             )
-        } else if (isTripActive && locationAuthStatus.needsAlwaysAuthorization) {
-            Text(
-                text = "Arka planda konum paylaşımı için Ayarlar'dan \"Her Zaman\" iznini seçin.",
-                fontSize = 12.sp,
-                color = WarningColor
-            )
+
+            isTripActive &&
+                locationAuthStatus.needsAlwaysAuthorization(LocationPermissionRole.Driver) ->
+                LocationPermissionBanner(
+                    message = "Konum paylaşımı durdu. Ayarlar'dan \"Her zaman\" iznini açın veya seferi yeniden başlatın.",
+                    actionColor = WarningColor,
+                    primaryLabel = "Her zaman iznini aç",
+                    onPrimaryAction = onRequestAlwaysPermission,
+                    secondaryLabel = "Ayarlara git",
+                    onSecondaryAction = { openAppSettings(context) }
+                )
         }
     }
 }
@@ -459,6 +471,48 @@ private fun PassengerRow(member: ShuttleMember) {
                 text = member.attendance.title,
                 fontSize = 12.sp,
                 color = NeonTheme.OnSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun LocationPermissionBanner(
+    message: String,
+    actionColor: androidx.compose.ui.graphics.Color,
+    primaryLabel: String,
+    onPrimaryAction: () -> Unit,
+    secondaryLabel: String,
+    onSecondaryAction: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(actionColor.copy(alpha = 0.12f))
+            .border(1.dp, actionColor.copy(alpha = 0.35f))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = message,
+            fontSize = 12.sp,
+            color = NeonTheme.OnSurface,
+            lineHeight = 16.sp
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                text = primaryLabel,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = actionColor,
+                modifier = Modifier.clickable(onClick = onPrimaryAction)
+            )
+            Text(
+                text = secondaryLabel,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = NeonTheme.OnSurfaceVariant,
+                modifier = Modifier.clickable(onClick = onSecondaryAction)
             )
         }
     }

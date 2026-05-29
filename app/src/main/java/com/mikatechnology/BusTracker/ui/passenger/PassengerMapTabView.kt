@@ -48,6 +48,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.gms.maps.model.LatLng
 import com.mikatechnology.BusTracker.data.model.DriverLocation
 import com.mikatechnology.BusTracker.data.model.MorningPickup
+import com.mikatechnology.BusTracker.services.LocationPermissionRole
 import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.ui.map.NeonMapOverlay
 import com.mikatechnology.BusTracker.ui.map.ShuttleMapCamera
@@ -75,12 +76,11 @@ fun PassengerMapTabView(
     val scope = rememberCoroutineScope()
     val deviceLocation by LocationTracker.currentLocation.collectAsState()
     var pendingCenterOnPassenger by remember { mutableStateOf(false) }
-    var hasInitialCentered by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
-        LocationTracker.refreshAuthorizationStatus(context)
+        LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Passenger)
         if (granted) {
             pendingCenterOnPassenger = true
             LocationTracker.requestSingleLocation(context)
@@ -88,7 +88,7 @@ fun PassengerMapTabView(
     }
 
     fun requestPassengerLocation() {
-        LocationTracker.refreshAuthorizationStatus(context)
+        LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Passenger)
         if (LocationTracker.hasFineLocation(context)) {
             pendingCenterOnPassenger = true
             LocationTracker.requestSingleLocation(context)
@@ -113,12 +113,6 @@ fun PassengerMapTabView(
             morningPickups = morningPickupsForMap,
             extraCoordinates = listOfNotNull(draftCoordinate)
         )
-    }
-
-    LaunchedEffect(mapCamera) {
-        if (hasInitialCentered || mapCamera == null) return@LaunchedEffect
-        hasInitialCentered = true
-        requestPassengerLocation()
     }
 
     LaunchedEffect(deviceLocation, pendingCenterOnPassenger) {

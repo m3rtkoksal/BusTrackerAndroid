@@ -6,6 +6,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.mikatechnology.BusTracker.R
 import kotlinx.coroutines.tasks.await
@@ -34,7 +35,20 @@ object GoogleSignInHelper {
             ?: throw IllegalStateException("Google kimlik jetonu alınamadı.")
 
         val credential = GoogleAuthProvider.getCredential(idToken, null)
-        FirebaseAuth.getInstance().signInWithCredential(credential).await()
+        try {
+            FirebaseAuth.getInstance().signInWithCredential(credential).await()
+        } catch (error: FirebaseAuthException) {
+            val detail = error.message.orEmpty()
+            if (detail.contains("blocked", ignoreCase = true)) {
+                throw IllegalStateException(
+                    "Firebase Auth bu APK imzasını reddetti (API key kısıtı). " +
+                        "Google Cloud → Android key → Application restrictions: " +
+                        "paket + debug/release SHA-1 doğru mu, veya geçici None deneyin. " +
+                        "API restrictions altında Identity Toolkit API açık olmalı."
+                )
+            }
+            throw error
+        }
 
         val googleUserId = account.id ?: account.email
             ?: throw IllegalStateException("Google kullanıcı kimliği alınamadı.")

@@ -37,6 +37,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +54,8 @@ import com.mikatechnology.BusTracker.base.BaseViewShell
 import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
+import com.mikatechnology.BusTracker.services.LocationAuthStatus
+import com.mikatechnology.BusTracker.services.LocationPermissionRole
 import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.ui.map.resolveDriverMapLocation
 import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
@@ -58,6 +63,7 @@ import com.mikatechnology.BusTracker.ui.shared.RoleNavBar
 import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountFooter
 import com.mikatechnology.BusTracker.ui.settings.SettingsSignOutRow
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
+import com.mikatechnology.BusTracker.util.openAppSettings
 
 @Composable
 fun DriverHomeView(
@@ -72,6 +78,8 @@ fun DriverHomeView(
     val context = LocalContext.current
     val selectedTab by tabController.selectedTab.collectAsStateWithLifecycle()
     var showMyServices by remember { mutableStateOf(false) }
+    var showAlwaysLocationGuide by remember { mutableStateOf(false) }
+    var waitingForSettingsReturn by remember { mutableStateOf(false) }
 
     val members by ShuttleStore.shared.members.collectAsStateWithLifecycle()
     val isTripActive by ShuttleStore.shared.isTripActive.collectAsStateWithLifecycle()
@@ -92,11 +100,12 @@ fun DriverHomeView(
         deviceLocation = deviceLocation ?: LocationTracker.effectiveLocation,
         driverName = profile.name
     )
+    val canStartTrip = locationAuthStatus == LocationAuthStatus.Always
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        LocationTracker.refreshAuthorizationStatus(context)
+        LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
         if (LocationTracker.hasFineLocation(context)) {
             LocationTracker.requestSingleLocation(context)
         }
@@ -104,22 +113,72 @@ fun DriverHomeView(
 
     val backgroundPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) {
-        LocationTracker.refreshAuthorizationStatus(context)
+    ) { granted ->
+        LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
+        if (granted) {
+            showAlwaysLocationGuide = false
+            waitingForSettingsReturn = false
+        } else {
+            waitingForSettingsReturn = true
+        }
+    }
+
+    fun requestForegroundLocationPermission() {
+        permissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
+    }
+
+    fun requestAlwaysLocationPermission() {
+        if (!LocationTracker.hasFineLocation(context)) {
+            requestForegroundLocationPermission()
+            return
+        }
+        if (LocationTracker.hasDriverAlwaysLocation(context)) return
+        showAlwaysLocationGuide = true
+        waitingForSettingsReturn = false
+    }
+
+    fun launchAlwaysPermissionFromGuide() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        } else {
+            openAppSettings(context)
+            waitingForSettingsReturn = true
+        }
+    }
+
+    fun refreshDriverLocationAuth() {
+        LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
+    }
+
+    fun canDriverStartTripNow(): Boolean {
+        refreshDriverLocationAuth()
+        return LocationTracker.hasDriverAlwaysLocation(context)
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner, profile.groupID) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
+            if (LocationTracker.hasFineLocation(context)) {
+                LocationTracker.requestSingleLocation(context)
+            }
+            if (LocationTracker.hasDriverAlwaysLocation(context)) {
+                showAlwaysLocationGuide = false
+                waitingForSettingsReturn = false
+            }
+        }
     }
 
     LaunchedEffect(profile.groupID) {
         LocationTracker.initialize(context)
         viewModel.onAppear(profile.groupID)
-        if (!LocationTracker.hasFineLocation(context)) {
-            permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        } else {
-            LocationTracker.refreshAuthorizationStatus(context)
+        if (LocationTracker.hasFineLocation(context)) {
+            LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
             LocationTracker.requestSingleLocation(context)
         }
     }
@@ -146,20 +205,17 @@ fun DriverHomeView(
                             isTripBusy = uiState.isLoading,
                             locationAuthStatus = locationAuthStatus,
                             onToggleTrip = {
-                                if (
-                                    !isTripActive &&
-                                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                                    locationAuthStatus.needsAlwaysAuthorization
-                                ) {
-                                    backgroundPermissionLauncher.launch(
-                                        Manifest.permission.ACCESS_BACKGROUND_LOCATION
-                                    )
+                                val allowed = canDriverStartTripNow()
+                                if (!isTripActive && !allowed) {
+                                    requestAlwaysLocationPermission()
                                 }
-                                viewModel.handleTripControlTap()
+                                viewModel.handleTripControlTap(allowed)
                             },
                             onCopyCode = {
                                 viewModel.copyGroupCode(context, viewModel.userProfile.groupCode)
-                            }
+                            },
+                            onRequestForegroundPermission = { requestForegroundLocationPermission() },
+                            onRequestAlwaysPermission = { requestAlwaysLocationPermission() }
                         )
 
                         DriverHomeTab.Map -> {
@@ -209,6 +265,34 @@ fun DriverHomeView(
             }
 
             AnimatedVisibility(
+                visible = showAlwaysLocationGuide,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(4f)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f))
+                            .clickable { showAlwaysLocationGuide = false }
+                    )
+                    DriverAlwaysLocationGuideSheet(
+                        waitingForSettingsReturn = waitingForSettingsReturn,
+                        onRequestPermission = { launchAlwaysPermissionFromGuide() },
+                        onOpenSettings = {
+                            waitingForSettingsReturn = true
+                            openAppSettings(context)
+                        },
+                        onDismiss = { showAlwaysLocationGuide = false },
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                }
+            }
+
+            AnimatedVisibility(
                 visible = showTripDurationSheet,
                 enter = fadeIn() + slideInVertically { it },
                 exit = fadeOut() + slideOutVertically { it },
@@ -227,7 +311,14 @@ fun DriverHomeView(
                         selectedHours = selectedTripDurationHours,
                         onSelectedHoursChange = viewModel::selectTripDurationHours,
                         isLoading = uiState.isLoading,
-                        onConfirm = viewModel::confirmStartTrip,
+                        canStartTrip = canDriverStartTripNow(),
+                        onConfirm = {
+                            val allowed = canDriverStartTripNow()
+                            if (!allowed) {
+                                requestAlwaysLocationPermission()
+                            }
+                            viewModel.confirmStartTrip(allowed)
+                        },
                         modifier = Modifier.align(Alignment.BottomCenter)
                     )
                 }

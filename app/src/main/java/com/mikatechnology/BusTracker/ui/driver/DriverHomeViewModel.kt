@@ -95,17 +95,29 @@ class DriverHomeViewModel(
         )
     }
 
-    fun handleTripControlTap() {
+    fun handleTripControlTap(canStartTrip: Boolean) {
         if (isTripBusy) return
         if (shuttleStore.isTripActive.value) {
             stopTrip()
-        } else {
-            _showTripDurationSheet.value = true
+            return
         }
+        if (!canStartTrip) {
+            showError(
+                "Servisi başlatmak için \"Her zaman\" konum izni zorunludur. Ayarlar'dan izin verin."
+            )
+            return
+        }
+        _showTripDurationSheet.value = true
     }
 
-    fun confirmStartTrip() {
+    fun confirmStartTrip(canStartTrip: Boolean) {
         if (isTripBusy) return
+        if (!canStartTrip) {
+            showError(
+                "Servisi başlatmak için \"Her zaman\" konum izni zorunludur. Ayarlar'dan izin verin."
+            )
+            return
+        }
         viewModelScope.launch {
             isTripBusy = true
             _showTripDurationSheet.value = false

@@ -22,6 +22,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
+import com.mikatechnology.BusTracker.services.LocationPermissionRole
+import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.services.NotificationService
 import com.mikatechnology.BusTracker.ui.driver.DriverHomeView
 import com.mikatechnology.BusTracker.ui.passenger.PassengerHomeView
@@ -37,6 +39,16 @@ fun AppRoot() {
     var showLogin by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    val foregroundLocationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        val role = when (profile?.role) {
+            MemberRole.Driver -> LocationPermissionRole.Driver
+            else -> LocationPermissionRole.Passenger
+        }
+        LocationTracker.refreshAuthorizationStatus(context, role)
+    }
+
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -50,6 +62,26 @@ fun AppRoot() {
 
     LaunchedEffect(Unit) {
         UserSessionRepository.load(context)
+    }
+
+    // Giriş veya kayıt ekranına gelir gelmez: "Uygulama kullanılırken" konum izni
+    LaunchedEffect(isSessionLoaded, profile?.userID) {
+        if (!isSessionLoaded) return@LaunchedEffect
+        LocationTracker.initialize(context)
+        if (!LocationTracker.hasFineLocation(context)) {
+            foregroundLocationLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        } else {
+            val role = when (profile?.role) {
+                MemberRole.Driver -> LocationPermissionRole.Driver
+                else -> LocationPermissionRole.Passenger
+            }
+            LocationTracker.refreshAuthorizationStatus(context, role)
+        }
     }
 
     LaunchedEffect(profile?.memberID, profile?.primaryGroupID) {

@@ -21,6 +21,13 @@ fun readMapsApiKey(): String {
     return match?.groupValues?.get(1).orEmpty()
 }
 
+val keystoreProperties = Properties().apply {
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     namespace = "com.mikatechnology.BusTracker"
     compileSdk {
@@ -33,8 +40,8 @@ android {
         applicationId = "com.mikatechnology.BusTracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -43,9 +50,26 @@ android {
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
     }
 
+    signingConfigs {
+        if (keystoreProperties.isNotEmpty()) {
+            create("release") {
+                val storeFilePath = keystoreProperties.getProperty("storeFile")
+                    ?: error("keystore.properties: storeFile eksik")
+                storeFile = rootProject.file(storeFilePath)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                    ?: keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias") ?: "key0"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (keystoreProperties.isNotEmpty()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -59,6 +83,22 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+if (keystoreProperties.isEmpty()) {
+    tasks.matching { it.name == "bundleRelease" }.configureEach {
+        doFirst {
+            throw GradleException(
+                """
+                Release AAB imzalanamaz: keystore.properties eksik.
+                1) cp keystore.properties.example keystore.properties
+                2) storePassword ve keyPassword doldurun (Untitled.jks / alias bustracker)
+                3) ./gradlew bundleRelease
+                Alternatif: Android Studio → Build → Generate Signed App Bundle
+                """.trimIndent()
+            )
+        }
     }
 }
 
