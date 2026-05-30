@@ -145,7 +145,7 @@ fun PassengerServiceTab(
                     accent = NeonTheme.Secondary,
                     isSelected = myAttendance == AttendanceStatus.Coming,
                     isLoading = isUpdatingAttendance && myAttendance != AttendanceStatus.Coming,
-                    enabled = isTripActive,
+                    enabled = true,
                     onClick = { onAttendanceSelected(AttendanceStatus.Coming) },
                     modifier = Modifier.weight(1f)
                 )
@@ -156,17 +156,14 @@ fun PassengerServiceTab(
                     accent = ErrorRed,
                     isSelected = myAttendance == AttendanceStatus.NotComing,
                     isLoading = isUpdatingAttendance && myAttendance != AttendanceStatus.NotComing,
-                    enabled = isTripActive,
+                    enabled = true,
                     onClick = { onAttendanceSelected(AttendanceStatus.NotComing) },
                     modifier = Modifier.weight(1f)
                 )
             }
 
             Text(
-                text = if (isTripActive)
-                    "Seçiminiz sürücüye anında iletilir."
-                else
-                    "Servis başlayınca seçim yapabilirsiniz.",
+                text = "Seçiminiz sürücüye kaydedilir. Servis bitince yeniden seçmeniz gerekir.",
                 fontSize = 10.sp,
                 color = NeonTheme.Outline,
                 modifier = Modifier

@@ -172,20 +172,6 @@ class ShuttleStore private constructor() {
         val endsAt = Date(System.currentTimeMillis() + (durationHours * 3_600_000).toLong())
         _plannedTripEndAt.value = endsAt
 
-        db.collection("groups").document(groupID)
-            .collection("attendance").document(todayKey)
-            .delete()
-            .await()
-
-        latestAttendanceResponses = emptyMap()
-        _members.value = _members.value.map { member ->
-            if (member.role == MemberRole.Passenger) {
-                member.copy(attendance = AttendanceStatus.Unknown)
-            } else {
-                member
-            }
-        }
-
         db.collection("groups").document(groupID).collection("tripEvents")
             .add(
                 mapOf(
@@ -265,6 +251,18 @@ class ShuttleStore private constructor() {
                 com.google.firebase.firestore.SetOptions.merge()
             )
             .await()
+
+        resetTodayAttendance(groupID)
+    }
+
+    private suspend fun resetTodayAttendance(groupID: String) {
+        db.collection("groups").document(groupID)
+            .collection("attendance")
+            .document(todayKey)
+            .delete()
+            .await()
+        latestAttendanceResponses = emptyMap()
+        resetPassengerAttendance()
     }
 
     suspend fun reconcileActiveTripIfExpired(groupID: String, driverName: String) {
