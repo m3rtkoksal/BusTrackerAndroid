@@ -21,6 +21,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.model.UserProfile
+import com.mikatechnology.BusTracker.data.repository.AuthRepository
+import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
 import com.mikatechnology.BusTracker.services.LocationPermissionRole
 import com.mikatechnology.BusTracker.services.LocationTracker
@@ -62,6 +64,19 @@ fun AppRoot() {
 
     LaunchedEffect(Unit) {
         UserSessionRepository.load(context)
+        val localProfile = UserSessionRepository.profile.value ?: return@LaunchedEffect
+        if (!AuthRepository.isSignedIn) {
+            UserSessionRepository.clear(context)
+            return@LaunchedEffect
+        }
+        try {
+            val remoteProfile = ShuttleRepository.shared.fetchUserProfile(localProfile.userID)
+            if (remoteProfile == null) {
+                UserSessionRepository.signOut(context)
+            }
+        } catch (_: Exception) {
+            // Ağ hatası: yerel oturumu koru.
+        }
     }
 
     // Giriş veya kayıt ekranına gelir gelmez: "Uygulama kullanılırken" konum izni

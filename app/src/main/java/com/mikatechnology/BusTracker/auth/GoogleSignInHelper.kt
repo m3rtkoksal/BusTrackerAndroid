@@ -35,6 +35,34 @@ object GoogleSignInHelper {
             ?: throw IllegalStateException("Google kimlik jetonu alınamadı.")
 
         val credential = GoogleAuthProvider.getCredential(idToken, null)
+        signInOrReauthenticate(credential)
+
+        val googleUserId = account.id ?: account.email
+            ?: throw IllegalStateException("Google kullanıcı kimliği alınamadı.")
+
+        return GoogleSignInResult(
+            googleUserId = googleUserId,
+            displayName = account.displayName,
+            email = account.email
+        )
+    }
+
+    /** Hesap silme gibi hassas işlemler için mevcut Firebase oturumunu yeniler. */
+    suspend fun reauthenticateWithGoogleResult(data: Intent?) {
+        requireNotNull(data) { "Google doğrulama intent'i eksik." }
+        val account = GoogleSignIn.getSignedInAccountFromIntent(data)
+            .getResult(ApiException::class.java)
+
+        val idToken = account.idToken
+            ?: throw IllegalStateException("Google kimlik jetonu alınamadı.")
+
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        val user = FirebaseAuth.getInstance().currentUser
+            ?: throw IllegalStateException("Firebase oturumu bulunamadı.")
+        user.reauthenticate(credential).await()
+    }
+
+    private suspend fun signInOrReauthenticate(credential: com.google.firebase.auth.AuthCredential) {
         try {
             FirebaseAuth.getInstance().signInWithCredential(credential).await()
         } catch (error: FirebaseAuthException) {
@@ -49,14 +77,5 @@ object GoogleSignInHelper {
             }
             throw error
         }
-
-        val googleUserId = account.id ?: account.email
-            ?: throw IllegalStateException("Google kullanıcı kimliği alınamadı.")
-
-        return GoogleSignInResult(
-            googleUserId = googleUserId,
-            displayName = account.displayName,
-            email = account.email
-        )
     }
 }

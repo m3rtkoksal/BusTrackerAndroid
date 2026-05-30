@@ -1,6 +1,7 @@
 package com.mikatechnology.BusTracker.ui.driver
 
 import android.Manifest
+import android.app.Activity
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mikatechnology.BusTracker.auth.GoogleSignInHelper
 import com.mikatechnology.BusTracker.base.BaseViewShell
 import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.model.UserProfile
@@ -76,6 +78,14 @@ fun DriverHomeView(
     tabController: DriverTabBarController = viewModel()
 ) {
     val context = LocalContext.current
+    val activity = context as? Activity
+
+    val googleDeleteAccountLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.deleteAccount(context, result.data)
+    }
+
     val selectedTab by tabController.selectedTab.collectAsStateWithLifecycle()
     var showMyServices by remember { mutableStateOf(false) }
     var showAlwaysLocationGuide by remember { mutableStateOf(false) }
@@ -244,7 +254,11 @@ fun DriverHomeView(
                             },
                             onDeleteAccount = {
                                 viewModel.requestDeleteAccount {
-                                    viewModel.deleteAccount(context)
+                                    activity?.let { act ->
+                                        googleDeleteAccountLauncher.launch(
+                                            GoogleSignInHelper.createSignInIntent(act)
+                                        )
+                                    } ?: viewModel.deleteAccount(context, null)
                                 }
                             }
                         )

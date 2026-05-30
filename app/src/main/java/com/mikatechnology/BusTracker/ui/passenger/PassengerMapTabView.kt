@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,6 +59,11 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlinx.coroutines.launch
 
+private enum class PassengerGpsFocus {
+    Primary,
+    Alternate
+}
+
 @Composable
 fun PassengerMapTabView(
     groupName: String,
@@ -75,36 +81,79 @@ fun PassengerMapTabView(
     var mapCamera by remember { mutableStateOf<ShuttleMapCamera?>(null) }
     val scope = rememberCoroutineScope()
     val deviceLocation by LocationTracker.currentLocation.collectAsState()
-    var pendingCenterOnPassenger by remember { mutableStateOf(false) }
+    /// false = bir sonraki basış birincil odak, true = bir sonraki basış alternatif odak.
+    var mapFocusNextIsAlternate by remember { mutableStateOf(false) }
+    var pendingGpsFocus by remember { mutableStateOf<PassengerGpsFocus?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Passenger)
         if (granted) {
-            pendingCenterOnPassenger = true
             LocationTracker.requestSingleLocation(context)
         }
     }
 
-    fun requestPassengerLocation() {
+    fun centerOnCoordinate(latLng: LatLng) {
+        scope.launch { mapCamera?.centerOn(latLng, animated = true) }
+    }
+
+    fun centerOnCurrentLocation(gpsFocus: PassengerGpsFocus) {
+        pendingGpsFocus = gpsFocus
         LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Passenger)
         if (LocationTracker.hasFineLocation(context)) {
-            pendingCenterOnPassenger = true
             LocationTracker.requestSingleLocation(context)
             deviceLocation?.let { loc ->
+                pendingGpsFocus = null
                 val latLng = LatLng(loc.latitude, loc.longitude)
-                onMapClick(latLng)
-                scope.launch { mapCamera?.centerOn(latLng, animated = true) }
-                pendingCenterOnPassenger = false
+                if (gpsFocus == PassengerGpsFocus.Primary) {
+                    onMapClick(latLng)
+                }
+                centerOnCoordinate(latLng)
             }
         } else {
             permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
+    fun focusOnPrimaryMapTarget() {
+        draftCoordinate?.let {
+            centerOnCoordinate(it)
+            return
+        }
+        centerOnCurrentLocation(PassengerGpsFocus.Primary)
+    }
+
+    fun focusOnAlternateMapTarget() {
+        if (isTripActive && driverLocation != null) {
+            centerOnCoordinate(LatLng(driverLocation.latitude, driverLocation.longitude))
+            return
+        }
+        savedPickup?.let {
+            centerOnCoordinate(LatLng(it.latitude, it.longitude))
+            return
+        }
+        centerOnCurrentLocation(PassengerGpsFocus.Alternate)
+    }
+
+    fun togglePassengerMapFocus() {
+        if (mapFocusNextIsAlternate) {
+            focusOnAlternateMapTarget()
+            mapFocusNextIsAlternate = false
+        } else {
+            focusOnPrimaryMapTarget()
+            mapFocusNextIsAlternate = true
+        }
+    }
+
     val morningPickupsForMap = remember(savedPickup) {
         savedPickup?.let { listOf(it) } ?: emptyList()
+    }
+
+    LaunchedEffect(isTripActive) {
+        if (!isTripActive) {
+            mapFocusNextIsAlternate = false
+        }
     }
 
     LaunchedEffect(driverLocation?.updatedAt, savedPickup, draftCoordinate, mapCamera) {
@@ -115,13 +164,15 @@ fun PassengerMapTabView(
         )
     }
 
-    LaunchedEffect(deviceLocation, pendingCenterOnPassenger) {
-        if (!pendingCenterOnPassenger) return@LaunchedEffect
+    LaunchedEffect(deviceLocation, pendingGpsFocus) {
+        val gpsFocus = pendingGpsFocus ?: return@LaunchedEffect
         val loc = deviceLocation ?: return@LaunchedEffect
-        pendingCenterOnPassenger = false
+        pendingGpsFocus = null
         val latLng = LatLng(loc.latitude, loc.longitude)
-        onMapClick(latLng)
-        scope.launch { mapCamera?.centerOn(latLng, animated = true) }
+        if (gpsFocus == PassengerGpsFocus.Primary) {
+            onMapClick(latLng)
+        }
+        centerOnCoordinate(latLng)
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -167,9 +218,13 @@ fun PassengerMapTabView(
                         onClick = { scope.launch { mapCamera?.zoom(by = 1.35) } }
                     )
                     MapControlButton(
-                        icon = Icons.Default.MyLocation,
+                        icon = if (mapFocusNextIsAlternate) {
+                            Icons.Default.MyLocation
+                        } else {
+                            Icons.Default.Navigation
+                        },
                         highlighted = true,
-                        onClick = { requestPassengerLocation() }
+                        onClick = { togglePassengerMapFocus() }
                     )
                 }
             }

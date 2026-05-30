@@ -3,6 +3,7 @@ package com.mikatechnology.BusTracker.ui.passenger
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.viewModelScope
 import com.mikatechnology.BusTracker.base.BaseViewModel
 import com.mikatechnology.BusTracker.base.NavigationBarStyle
@@ -135,19 +136,43 @@ class PassengerHomeViewModel(
         }
     }
 
-    fun deleteAccount(context: Context) {
+    fun deleteAccount(context: Context, googleReauthData: Intent?) {
         viewModelScope.launch {
+            if (googleReauthData == null) {
+                showError("Hesap silmek için Google doğrulaması gerekli.")
+                return@launch
+            }
+
             setLoading(true, "Hesap siliniyor...")
+            var profileDeleted = false
+            var authRemoved = false
+            var shouldSignOut = false
             try {
+                if (!AuthRepository.reauthenticateWithGoogle(googleReauthData)) {
+                    showError("Google doğrulaması tamamlanamadı.")
+                    return@launch
+                }
+
                 store.deleteUserData(profile)
-                AuthRepository.deleteCurrentUser()
-                store.stopListening()
-                UserSessionRepository.signOut(context)
-                showSuccess("Hesabınız başarıyla silindi.")
-            } catch (e: Exception) {
-                showError("Hesap silinirken bir hata oluştu: ${e.localizedMessage ?: "Bilinmeyen hata"}")
+                profileDeleted = store.isUserProfileDeleted(profile.userID)
+                authRemoved = AuthRepository.tryDeleteAuthUser() == AuthRepository.AuthDeleteStep.Deleted
+                shouldSignOut = true
+            } catch (_: Exception) {
+                shouldSignOut = profileDeleted || authRemoved
             } finally {
+                store.stopListening()
+                if (shouldSignOut) {
+                    UserSessionRepository.signOut(context)
+                }
                 setLoading(false)
+                if (!shouldSignOut) return@launch
+                if (profileDeleted && authRemoved) {
+                    showSuccess("Hesabınız başarıyla silindi.")
+                } else if (profileDeleted || authRemoved) {
+                    showSuccess("Hesabınız başarıyla silindi.")
+                } else {
+                    showError("Hesap silinirken bir hata oluştu. Oturumunuz kapatıldı; tekrar deneyebilirsiniz.")
+                }
             }
         }
     }

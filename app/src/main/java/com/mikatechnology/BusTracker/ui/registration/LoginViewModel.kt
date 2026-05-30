@@ -43,7 +43,7 @@ class LoginViewModel : BaseViewModel() {
                         NotificationService.syncTokenForProfile(context, groupID, profile.memberID)
                     }
                 } else {
-                    showError("Bu Google hesabıyla kayıtlı profil bulunamadı. Önce hesap oluşturun.")
+                    showError("Bu Google hesabıyla kayıtlı profil bulunamadı. Hesabınız silinmiş olabilir; yeni hesap oluşturabilirsiniz.")
                     AuthRepository.signOut()
                 }
             } catch (_: AuthError.SignInCancelled) {

@@ -3,6 +3,7 @@ package com.mikatechnology.BusTracker.data.repository
 import android.content.Intent
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
 import com.mikatechnology.BusTracker.auth.GoogleSignInHelper
 import com.mikatechnology.BusTracker.auth.GoogleSignInResult
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -82,10 +83,67 @@ object AuthRepository {
     }
 
     suspend fun deleteCurrentUser() {
-        val user = auth.currentUser
-            ?: throw AuthError.SignInFailed("Giriş yapılmamış.")
-        user.delete().await()
-        lastGoogleUserId = null
+        if (!removeAccountIfPossible()) {
+            throw AuthError.SignInFailed(
+                "Hesap silmek için güvenlik nedeniyle önce çıkış yapıp tekrar Google ile giriş yapmanız gerekebilir."
+            )
+        }
+    }
+
+    /** Firebase Auth hesabını siler. Zaten silinmişse `true` döner. */
+    suspend fun removeAccountIfPossible(): Boolean {
+        when (tryDeleteAuthUser()) {
+            AuthDeleteStep.Deleted -> return true
+            AuthDeleteStep.Failed -> return auth.currentUser == null
+            AuthDeleteStep.RequiresRecentLogin -> return false
+        }
+    }
+
+    suspend fun reauthenticateWithGoogle(data: Intent?): Boolean {
+        if (data == null) return false
+        return try {
+            GoogleSignInHelper.reauthenticateWithGoogleResult(data)
+            true
+        } catch (error: ApiException) {
+            false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    enum class AuthDeleteStep {
+        Deleted,
+        RequiresRecentLogin,
+        Failed
+    }
+
+    suspend fun tryDeleteAuthUser(): AuthDeleteStep {
+        val user = auth.currentUser ?: run {
+            lastGoogleUserId = null
+            return AuthDeleteStep.Deleted
+        }
+
+        return try {
+            user.delete().await()
+            lastGoogleUserId = null
+            AuthDeleteStep.Deleted
+        } catch (error: FirebaseAuthException) {
+            if (auth.currentUser == null) {
+                lastGoogleUserId = null
+                AuthDeleteStep.Deleted
+            } else if (error.errorCode == "ERROR_REQUIRES_RECENT_LOGIN") {
+                AuthDeleteStep.RequiresRecentLogin
+            } else {
+                AuthDeleteStep.Failed
+            }
+        } catch (_: Exception) {
+            if (auth.currentUser == null) {
+                lastGoogleUserId = null
+                AuthDeleteStep.Deleted
+            } else {
+                AuthDeleteStep.Failed
+            }
+        }
     }
 
     /** Google Sign-In [CommonStatusCodes] / [GoogleSignInStatusCodes] → kullanıcı mesajı. */

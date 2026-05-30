@@ -603,19 +603,42 @@ class ShuttleStore private constructor() {
             if (profile.groupID.isNotBlank()) add(profile.groupID)
         }
 
-        db.collection("users").document(profile.userID).delete().await()
+        try {
+            db.collection("users").document(profile.userID).delete().await()
+        } catch (_: Exception) {
+            // Kısmi silme: diğer adımlara devam et.
+        }
 
         for (groupID in groupIDs) {
-            db.collection("groups").document(groupID)
-                .collection("members").document(profile.memberID)
-                .delete()
-                .await()
+            try {
+                db.collection("groups").document(groupID)
+                    .collection("members").document(profile.memberID)
+                    .delete()
+                    .await()
+            } catch (_: Exception) {
+            }
 
-            db.collection("groups").document(groupID)
-                .collection("morningPickups").document(profile.memberID)
-                .delete()
-                .await()
+            try {
+                db.collection("groups").document(groupID)
+                    .collection("morningPickups").document(profile.memberID)
+                    .delete()
+                    .await()
+            } catch (_: Exception) {
+            }
         }
+    }
+
+    suspend fun isUserProfileDeleted(userID: String): Boolean {
+        return try {
+            fetchUserProfileDocument(userID) == null
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private suspend fun fetchUserProfileDocument(userID: String): Map<String, Any>? {
+        val doc = db.collection("users").document(userID).get().await()
+        return doc.data
     }
 
     companion object {
