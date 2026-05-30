@@ -200,7 +200,6 @@ fun PassengerHomeView(
                         pendingStatus = pendingAttendance,
                         onSelectComing = { viewModel.updateAttendance(AttendanceStatus.Coming, context) },
                         onSelectNotComing = { viewModel.updateAttendance(AttendanceStatus.NotComing, context) },
-                        onDismiss = { viewModel.dismissTripAttendanceSheet() },
                         modifier = Modifier.align(Alignment.BottomCenter)
                     )
                 }

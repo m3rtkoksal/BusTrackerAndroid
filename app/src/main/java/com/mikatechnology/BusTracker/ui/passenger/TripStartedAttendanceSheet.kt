@@ -41,7 +41,6 @@ fun TripStartedAttendanceSheet(
     pendingStatus: AttendanceStatus?,
     onSelectComing: () -> Unit,
     onSelectNotComing: () -> Unit,
-    onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -114,15 +113,6 @@ fun TripStartedAttendanceSheet(
             fontSize = 12.sp,
             color = NeonTheme.OnSurfaceVariant,
             textAlign = TextAlign.Center
-        )
-
-        Text(
-            text = "Sonra",
-            fontSize = 13.sp,
-            color = NeonTheme.OnSurfaceVariant.copy(alpha = 0.7f),
-            modifier = Modifier
-                .padding(top = 4.dp)
-                .clickable(onClick = onDismiss)
         )
     }
 }
