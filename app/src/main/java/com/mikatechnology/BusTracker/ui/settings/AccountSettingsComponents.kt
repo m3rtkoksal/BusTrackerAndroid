@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Delete
@@ -19,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,12 +31,10 @@ fun SettingsSignOutRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
             .background(NeonTheme.SurfaceContainer)
             .border(
                 width = 1.dp,
-                color = NeonTheme.Error.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(8.dp)
+                color = NeonTheme.Error.copy(alpha = 0.3f)
             )
             .clickable(onClick = onClick)
             .padding(16.dp),
@@ -79,7 +75,6 @@ fun SettingsDeleteAccountFooter(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 12.dp)
-                .clip(RoundedCornerShape(8.dp))
                 .background(NeonTheme.Error)
                 .clickable(onClick = onClick)
                 .padding(16.dp),

@@ -143,9 +143,8 @@ private fun SheetAttendanceButton(
 
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
             .background(bg)
-            .border(if (isSelected) 2.dp else 1.dp, borderColor, RoundedCornerShape(12.dp))
+            .border(if (isSelected) 2.dp else 1.dp, borderColor)
             .clickable(enabled = !isLoading) { onClick() }
             .padding(vertical = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally
