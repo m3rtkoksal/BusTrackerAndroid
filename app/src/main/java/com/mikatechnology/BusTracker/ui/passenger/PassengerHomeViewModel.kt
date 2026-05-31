@@ -1,7 +1,5 @@
 package com.mikatechnology.BusTracker.ui.passenger
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.viewModelScope
@@ -211,14 +209,22 @@ class PassengerHomeViewModel(
         viewModelScope.launch {
             _isSavingPickup.value = true
             try {
+                val groupID = resolvedGroupID()
                 store.setMorningPickup(
-                    groupID = resolvedGroupID(),
+                    groupID = groupID,
                     memberID = profile.memberID,
                     name = profile.name,
                     latitude = coordinate.latitude,
                     longitude = coordinate.longitude
                 )
-                showSuccess("Sabah biniş noktanız kaydedildi.")
+                store.setAttendance(
+                    groupID = groupID,
+                    memberID = profile.memberID,
+                    name = profile.name,
+                    status = AttendanceStatus.Coming
+                )
+                _showTripStartedAttendanceSheet.value = false
+                showSuccess("Biniş noktanız kaydedildi. Durumunuz: Geliyorum.")
             } catch (e: Exception) {
                 showError(e.localizedMessage ?: "Kaydedilemedi")
             } finally {
@@ -227,10 +233,4 @@ class PassengerHomeViewModel(
         }
     }
 
-    fun copyGroupCode(context: Context, code: String) {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("Servis Kodu", code)
-        clipboard.setPrimaryClip(clip)
-        showSuccess("Servis kodu kopyalandı.")
-    }
 }

@@ -11,18 +11,29 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.model.UserProfile
+import com.mikatechnology.BusTracker.data.repository.ShuttleError
+import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
+import com.mikatechnology.BusTracker.services.NotificationService
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
+import kotlinx.coroutines.launch
 
 private val MyServicesCardShape = RectangleShape
 
@@ -31,8 +42,17 @@ fun MyServicesScreen(
     onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val profile by UserSessionRepository.profile.collectAsStateWithLifecycle()
     val store = ShuttleStore.shared
+    val repository = ShuttleRepository.shared
+    val isJoining by repository.isLoading.collectAsStateWithLifecycle()
+
+    var showAddServiceSheet by remember { mutableStateOf(false) }
+    var addServiceCode by remember { mutableStateOf("") }
+    var addServiceError by remember { mutableStateOf<String?>(null) }
+    var joinSuccessMessage by remember { mutableStateOf<String?>(null) }
     val isTripActive by store.isTripActive.collectAsStateWithLifecycle()
     val activeTripGroupID by store.currentActiveTripGroupID.collectAsStateWithLifecycle()
 
@@ -63,10 +83,26 @@ fun MyServicesScreen(
         belongsToUser && !isCurrentlyActive
     }
 
-    Column(
+    if (joinSuccessMessage != null) {
+        AlertDialog(
+            onDismissRequest = { joinSuccessMessage = null },
+            title = { Text("Başarılı") },
+            text = { Text(joinSuccessMessage ?: "") },
+            confirmButton = {
+                TextButton(onClick = { joinSuccessMessage = null }) {
+                    Text("Tamam")
+                }
+            }
+        )
+    }
+
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(NeonTheme.Background)
+    ) {
+    Column(
+        modifier = Modifier.fillMaxSize()
     ) {
         Row(
             modifier = Modifier
@@ -163,41 +199,88 @@ fun MyServicesScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Yeni Servis Ekle Button
-            Button(
-                onClick = {
-                    // TODO: Servis ekleme akışı
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = NeonTheme.Background,
-                    contentColor = NeonTheme.Primary
-                ),
-                border = BorderStroke(2.dp, NeonTheme.Primary),
-                shape = MyServicesCardShape
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+            if (profile?.role == MemberRole.Passenger) {
+                Button(
+                    onClick = {
+                        addServiceCode = ""
+                        addServiceError = null
+                        showAddServiceSheet = true
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NeonTheme.Background,
+                        contentColor = NeonTheme.Primary
+                    ),
+                    border = BorderStroke(2.dp, NeonTheme.Primary),
+                    shape = MyServicesCardShape
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "YENİ SERVİS EKLE",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.sp
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "YENİ SERVİS EKLE",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+
+        if (showAddServiceSheet) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f))
+                    .clickable { showAddServiceSheet = false },
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                AddServiceBottomSheet(
+                    serviceCode = addServiceCode,
+                    onServiceCodeChange = { addServiceCode = it.uppercase() },
+                    isLoading = isJoining,
+                    errorText = addServiceError,
+                    onJoin = {
+                        val current = profile ?: return@AddServiceBottomSheet
+                        scope.launch {
+                            addServiceError = null
+                            try {
+                                val updated = repository.joinAdditionalGroup(addServiceCode, current)
+                                UserSessionRepository.save(context, updated)
+                                store.stopListening()
+                                store.startListening(updated.primaryGroupID)
+                                NotificationService.syncTokenForProfile(
+                                    context,
+                                    updated.primaryGroupID,
+                                    updated.memberID
+                                )
+                                showAddServiceSheet = false
+                                joinSuccessMessage =
+                                    "${updated.groupName} eklendi ve aktif yapıldı."
+                            } catch (error: ShuttleError) {
+                                addServiceError = error.message ?: "İşlem başarısız."
+                            } catch (error: Exception) {
+                                addServiceError = error.message ?: "İşlem başarısız."
+                            }
+                        }
+                    },
+                    onDismiss = { showAddServiceSheet = false },
+                    modifier = Modifier.clickable(enabled = false) { }
+                )
+            }
         }
     }
 }

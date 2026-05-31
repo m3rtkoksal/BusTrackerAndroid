@@ -19,10 +19,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mikatechnology.BusTracker.data.model.UserProfile
+import com.mikatechnology.BusTracker.ui.settings.CopyServiceCode
 import com.mikatechnology.BusTracker.ui.settings.SettingsCardShape
 import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountFooter
 import com.mikatechnology.BusTracker.ui.settings.SettingsSignOutRow
@@ -31,11 +33,12 @@ import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 @Composable
 fun PassengerSettingsTab(
     profile: UserProfile,
-    onCopyCode: () -> Unit,
     onSignOut: () -> Unit,
     onDeleteAccount: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     Column(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -44,18 +47,23 @@ fun PassengerSettingsTab(
                 .padding(horizontal = 24.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            SettingsRow(
-                title = "SERVİS KODU",
-                value = profile.groupCode,
-                onClick = onCopyCode,
-                trailingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.ContentCopy,
-                        contentDescription = null,
-                        tint = NeonTheme.Secondary
-                    )
-                }
-            )
+            if (profile.groupCode.isNotBlank()) {
+                SettingsRow(
+                    title = "SERVİS KODU",
+                    value = profile.groupCode,
+                    onClick = {
+                        val copied = CopyServiceCode.copy(context, profile.groupCode)
+                        CopyServiceCode.showResult(context, copied)
+                    },
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = null,
+                            tint = NeonTheme.Secondary
+                        )
+                    }
+                )
+            }
 
             SettingsRow(
                 title = "ADINIZ",
@@ -94,7 +102,7 @@ private fun SettingsRow(
                 shape = SettingsCardShape
             )
             .then(
-                if (onClick != null) Modifier.clickable { onClick() } else Modifier
+                if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
             )
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically

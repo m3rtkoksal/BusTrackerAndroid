@@ -211,7 +211,7 @@ fun DriverHomeView(
                 ) {
                     when (selectedTab) {
                         DriverHomeTab.Passengers -> DriverPassengersTab(
-                            profile = viewModel.userProfile,
+                            profile = profile,
                             passengers = passengers,
                             stats = stats,
                             isTripActive = isTripActive,
@@ -225,7 +225,11 @@ fun DriverHomeView(
                                 viewModel.handleTripControlTap(allowed)
                             },
                             onCopyCode = {
-                                viewModel.copyGroupCode(context, viewModel.userProfile.groupCode)
+                                val copied = com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.copy(
+                                    context,
+                                    profile.groupCode
+                                )
+                                com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.showResult(context, copied)
                             },
                             onRequestForegroundPermission = { requestForegroundLocationPermission() },
                             onRequestAlwaysPermission = { requestAlwaysLocationPermission() }
@@ -244,10 +248,7 @@ fun DriverHomeView(
                         }
 
                         DriverHomeTab.Settings -> DriverSettingsTab(
-                            profile = viewModel.userProfile,
-                            onCopyCode = {
-                                viewModel.copyGroupCode(context, viewModel.userProfile.groupCode)
-                            },
+                            profile = profile,
                             onSignOut = {
                                 viewModel.requestSignOut {
                                     viewModel.signOut(context)
@@ -377,11 +378,12 @@ private fun DriverTopBar(
 @Composable
 fun DriverSettingsTab(
     profile: UserProfile,
-    onCopyCode: () -> Unit,
     onSignOut: () -> Unit,
     onDeleteAccount: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     Column(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -390,11 +392,19 @@ fun DriverSettingsTab(
                 .padding(horizontal = 24.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            DriverSettingsRow(
-                title = "Servis Kodu",
-                value = profile.groupCode,
-                onClick = onCopyCode
-            )
+            if (profile.groupCode.isNotBlank()) {
+                DriverSettingsRow(
+                    title = "Servis Kodu",
+                    value = profile.groupCode,
+                    onClick = {
+                        val copied = com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.copy(
+                            context,
+                            profile.groupCode
+                        )
+                        com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.showResult(context, copied)
+                    }
+                )
+            }
             DriverSettingsRow(
                 title = "Adınız",
                 value = profile.name,

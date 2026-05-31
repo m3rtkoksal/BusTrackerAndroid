@@ -2,10 +2,12 @@ package com.mikatechnology.BusTracker.services
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
@@ -16,6 +18,12 @@ import com.mikatechnology.BusTracker.R
 import kotlinx.coroutines.tasks.await
 
 object NotificationService {
+
+    enum class AccessResult {
+        Granted,
+        Prompted,
+        NeedsSettings
+    }
     /** Genel servis bildirimleri (varsayılan sistem sesi). */
     const val CHANNEL_TRIP = "bustracker_trip"
 
@@ -72,6 +80,31 @@ object NotificationService {
         ) == PackageManager.PERMISSION_GRANTED
     }
 
+    fun openAppSettings(context: Context) {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }
+
+    /** İzin varsa token kaydeder; yoksa çağıran Activity launcher ile istemeli. */
+    suspend fun ensureNotificationsEnabled(
+        context: Context,
+        groupID: String?,
+        memberID: String?
+    ): AccessResult {
+        createNotificationChannels(context)
+        if (!hasNotificationPermission(context)) {
+            return AccessResult.NeedsSettings
+        }
+        if (!groupID.isNullOrBlank() && !memberID.isNullOrBlank()) {
+            fetchAndSaveToken(groupID, memberID)
+        }
+        return AccessResult.Granted
+    }
+
+    @Deprecated("Launcher ile ensureNotificationsEnabled kullanın")
     suspend fun requestPermissionIfNeeded(context: Context): Boolean {
         createNotificationChannels(context)
         return hasNotificationPermission(context)

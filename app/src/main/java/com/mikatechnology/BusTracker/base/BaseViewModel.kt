@@ -57,10 +57,18 @@ open class BaseViewModel : ViewModel() {
     }
 
     fun showSuccess(message: String, title: String = "Başarılı") {
+        showToast(message, PopupStyle.Success, title)
+    }
+
+    fun showToast(
+        message: String,
+        style: PopupStyle = PopupStyle.Success,
+        title: String = ""
+    ) {
         updateState {
             it.copy(
                 toast = PopupPresentation(
-                    style = PopupStyle.Success,
+                    style = style,
                     title = title,
                     message = message
                 )

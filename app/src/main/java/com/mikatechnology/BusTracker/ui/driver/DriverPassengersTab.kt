@@ -107,7 +107,7 @@ fun DriverPassengersTab(
             onShare = {
                 val sendIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, "ServisTakip servis kodum: ${profile.groupCode}")
+                    putExtra(Intent.EXTRA_TEXT, "Servis kodu: ${profile.groupCode}")
                 }
                 context.startActivity(Intent.createChooser(sendIntent, null))
             }

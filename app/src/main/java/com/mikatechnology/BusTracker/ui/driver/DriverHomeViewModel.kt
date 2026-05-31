@@ -2,8 +2,6 @@ package com.mikatechnology.BusTracker.ui.driver
 
 import android.content.Context
 import android.content.Intent
-import android.content.ClipData
-import android.content.ClipboardManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -226,11 +224,6 @@ class DriverHomeViewModel(
         }
     }
 
-    fun copyGroupCode(context: Context, code: String) {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("Servis kodu", code))
-        showSuccess("Servis kodu kopyalandı.")
-    }
 }
 
 class DriverHomeViewModelFactory(

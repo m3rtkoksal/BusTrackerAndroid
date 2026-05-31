@@ -20,11 +20,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -53,6 +53,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.gms.maps.model.LatLng
+import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.DriverLocation
 import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.services.LocationPermissionRole
@@ -67,11 +68,12 @@ import java.util.Locale
 import kotlinx.coroutines.launch
 
 private enum class PassengerGpsFocus {
-    Primary,
-    Alternate
+    Primary
 }
 
 private val MapUiShape = RectangleShape
+private val AttendanceNotComingColor = Color(0xFFFF4444)
+private val AttendanceUnknownColor = Color(0xFFFFE04A)
 
 @Composable
 fun PassengerMapTabView(
@@ -80,6 +82,8 @@ fun PassengerMapTabView(
     driverRoute: List<LatLng>,
     draftCoordinate: LatLng?,
     savedPickup: MorningPickup?,
+    myAttendance: AttendanceStatus,
+    onAttendanceClick: () -> Unit,
     isTripActive: Boolean,
     isSaving: Boolean,
     onMapClick: (LatLng) -> Unit,
@@ -90,8 +94,6 @@ fun PassengerMapTabView(
     var mapCamera by remember { mutableStateOf<ShuttleMapCamera?>(null) }
     val scope = rememberCoroutineScope()
     val deviceLocation by LocationTracker.currentLocation.collectAsState()
-    /// false = bir sonraki basış birincil odak, true = bir sonraki basış alternatif odak.
-    var mapFocusNextIsAlternate by remember { mutableStateOf(false) }
     var pendingGpsFocus by remember { mutableStateOf<PassengerGpsFocus?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -125,44 +127,39 @@ fun PassengerMapTabView(
         }
     }
 
-    fun focusOnPrimaryMapTarget() {
-        draftCoordinate?.let {
-            centerOnCoordinate(it)
+    fun focusOnSavedPickupOrDevice() {
+        savedPickup?.let {
+            centerOnCoordinate(LatLng(it.latitude, it.longitude))
             return
         }
         centerOnCurrentLocation(PassengerGpsFocus.Primary)
     }
 
-    fun focusOnAlternateMapTarget() {
-        if (isTripActive && driverLocation != null) {
-            centerOnCoordinate(LatLng(driverLocation.latitude, driverLocation.longitude))
+    fun centerMapOnPassengerPickup(camera: ShuttleMapCamera, animated: Boolean) {
+        val pickup = draftCoordinate
+            ?: savedPickup?.let { LatLng(it.latitude, it.longitude) }
+        if (pickup != null) {
+            scope.launch { camera.centerOn(pickup, zoom = 15f, animated = animated) }
             return
         }
-        savedPickup?.let {
-            centerOnCoordinate(LatLng(it.latitude, it.longitude))
-            return
+        if (isTripActive) {
+            driverLocation?.let { loc ->
+                scope.launch {
+                    camera.centerOn(LatLng(loc.latitude, loc.longitude), zoom = 15f, animated = animated)
+                }
+            }
         }
-        centerOnCurrentLocation(PassengerGpsFocus.Alternate)
     }
 
-    fun togglePassengerMapFocus() {
-        if (mapFocusNextIsAlternate) {
-            focusOnAlternateMapTarget()
-            mapFocusNextIsAlternate = false
-        } else {
-            focusOnPrimaryMapTarget()
-            mapFocusNextIsAlternate = true
-        }
+    val showsDriverMapButton = isTripActive
+
+    fun focusOnDriverLocation() {
+        val loc = driverLocation ?: return
+        centerOnCoordinate(LatLng(loc.latitude, loc.longitude))
     }
 
     val morningPickupsForMap = remember(savedPickup) {
         savedPickup?.let { listOf(it) } ?: emptyList()
-    }
-
-    LaunchedEffect(isTripActive) {
-        if (!isTripActive) {
-            mapFocusNextIsAlternate = false
-        }
     }
 
     LaunchedEffect(driverLocation?.updatedAt, savedPickup, draftCoordinate, mapCamera) {
@@ -171,6 +168,12 @@ fun PassengerMapTabView(
             morningPickups = morningPickupsForMap,
             extraCoordinates = listOfNotNull(draftCoordinate)
         )
+    }
+
+    LaunchedEffect(mapCamera, isTripActive, savedPickup?.memberID, savedPickup?.updatedAt) {
+        val camera = mapCamera ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(80)
+        centerMapOnPassengerPickup(camera, animated = false)
     }
 
     LaunchedEffect(deviceLocation, pendingGpsFocus) {
@@ -209,32 +212,40 @@ fun PassengerMapTabView(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                PassengerMapCompactInfo(
-                    groupName = groupName,
-                    driverLocation = driverLocation,
-                    isTripActive = isTripActive
-                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    modifier = Modifier.widthIn(max = 200.dp)
+                ) {
+                    PassengerMapCompactInfo(
+                        groupName = groupName,
+                        driverLocation = driverLocation,
+                        isTripActive = isTripActive
+                    )
+                    PassengerMapAttendanceInfo(
+                        attendance = myAttendance,
+                        onClick = onAttendanceClick
+                    )
+                }
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                Column(horizontalAlignment = Alignment.End) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     MapControlButton(
-                        icon = Icons.Default.Add,
-                        onClick = { scope.launch { mapCamera?.zoom(by = 0.7) } }
-                    )
-                    MapControlButton(
-                        icon = Icons.Default.Remove,
-                        onClick = { scope.launch { mapCamera?.zoom(by = 1.35) } }
-                    )
-                    MapControlButton(
-                        icon = if (mapFocusNextIsAlternate) {
-                            Icons.Default.MyLocation
-                        } else {
-                            Icons.Default.Navigation
-                        },
+                        icon = if (savedPickup != null) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                         accentStyle = true,
-                        onClick = { togglePassengerMapFocus() }
+                        onClick = { focusOnSavedPickupOrDevice() }
                     )
+                    if (showsDriverMapButton) {
+                        MapControlButton(
+                            icon = Icons.Default.DirectionsBus,
+                            accentStyle = true,
+                            iconTint = NeonTheme.MapDriverPin,
+                            onClick = { focusOnDriverLocation() }
+                        )
+                    }
                 }
             }
         }
@@ -288,37 +299,60 @@ private fun PassengerMapCompactInfo(
     modifier: Modifier = Modifier
 ) {
     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val accent = if (isTripActive) NeonTheme.Secondary else NeonTheme.Outline
+    val titleColor = if (isTripActive) NeonTheme.OnSurface else NeonTheme.OnSurfaceVariant
+    val boxAlpha = if (isTripActive) 0.72f else 0.58f
+    val borderAlpha = if (isTripActive) 0.22f else 0.35f
 
     Row(
         modifier = modifier
             .widthIn(max = 200.dp)
             .height(IntrinsicSize.Min)
+            .alpha(if (isTripActive) 1f else 0.88f)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .width(3.dp)
-                .background(NeonTheme.Secondary)
+                .background(accent)
         )
         Column(
             modifier = Modifier
                 .clip(MapUiShape)
-                .background(NeonTheme.SurfaceContainer.copy(alpha = 0.72f))
+                .background(NeonTheme.SurfaceContainer.copy(alpha = boxAlpha))
                 .border(
                     width = 1.dp,
-                    color = NeonTheme.Secondary.copy(alpha = 0.22f),
+                    color = accent.copy(alpha = borderAlpha),
                     shape = MapUiShape
                 )
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(accent)
+                )
+                Text(
+                    text = groupName.uppercase(),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = titleColor,
+                    maxLines = 1
+                )
+            }
+
             if (isTripActive) {
                 when {
                     driverLocation != null -> {
                         Text(
                             text = driverLocation.driverName.uppercase(),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
                             color = NeonTheme.Secondary,
                             maxLines = 1
                         )
@@ -332,13 +366,6 @@ private fun PassengerMapCompactInfo(
                     }
                     else -> {
                         Text(
-                            text = groupName.uppercase(),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = NeonTheme.OnSurface,
-                            maxLines = 1
-                        )
-                        Text(
                             text = "Konum bekleniyor",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
@@ -349,22 +376,90 @@ private fun PassengerMapCompactInfo(
                 }
             } else {
                 Text(
-                    text = groupName.uppercase(),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NeonTheme.OnSurface,
-                    maxLines = 1
-                )
-                Text(
-                    text = "Servis bekliyor",
+                    text = "Servis pasif",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
-                    color = NeonTheme.OnSurfaceVariant,
+                    color = NeonTheme.OnSurfaceVariant.copy(alpha = 0.85f),
                     maxLines = 1
                 )
             }
         }
     }
+}
+
+@Composable
+private fun PassengerMapAttendanceInfo(
+    attendance: AttendanceStatus,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val accent = attendanceMapAccent(attendance)
+
+    Row(
+        modifier = modifier
+            .height(IntrinsicSize.Min)
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(2.dp)
+                .background(accent)
+        )
+        Row(
+            modifier = Modifier
+                .clip(MapUiShape)
+                .background(accent.copy(alpha = 0.14f))
+                .background(NeonTheme.SurfaceContainer.copy(alpha = 0.5f))
+                .border(
+                    width = 1.dp,
+                    color = accent.copy(alpha = 0.48f),
+                    shape = MapUiShape
+                )
+                .shadow(
+                    elevation = 2.dp,
+                    shape = MapUiShape,
+                    spotColor = accent.copy(alpha = 0.35f)
+                )
+                .padding(start = 8.dp, end = 7.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Icon(
+                imageVector = attendance.icon,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(13.dp)
+            )
+            Text(
+                text = attendance.mapTabLabel.uppercase(),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = accent,
+                maxLines = 1
+            )
+            Text(
+                text = "DEĞİŞTİR",
+                fontSize = 8.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp,
+                color = NeonTheme.OnSurfaceVariant,
+                maxLines = 1
+            )
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(14.dp)
+            )
+        }
+    }
+}
+
+private fun attendanceMapAccent(status: AttendanceStatus): Color = when (status) {
+    AttendanceStatus.Coming -> NeonTheme.Secondary
+    AttendanceStatus.NotComing -> AttendanceNotComingColor
+    AttendanceStatus.Unknown -> AttendanceUnknownColor
 }
 
 @Composable
@@ -428,32 +523,38 @@ private fun MapControlButton(
     highlighted: Boolean = false,
     /** Koyu kutu + ince neon çerçeve ve ikon (konum tuşu, iOS gibi). */
     accentStyle: Boolean = false,
+    compact: Boolean = false,
+    iconTint: androidx.compose.ui.graphics.Color? = null,
     onClick: () -> Unit
 ) {
     val useAccent = highlighted || accentStyle
+    val accentColor = iconTint ?: NeonTheme.Secondary
     val bg = if (highlighted) {
-        NeonTheme.Secondary.copy(alpha = 0.2f)
+        accentColor.copy(alpha = 0.2f)
     } else {
         NeonTheme.SurfaceContainerHigh.copy(alpha = 0.9f)
     }
     val border = if (useAccent) {
-        NeonTheme.Secondary.copy(alpha = 0.5f)
+        accentColor.copy(alpha = 0.55f)
     } else {
         NeonTheme.Outline.copy(alpha = 0.3f)
     }
-    val resolvedIconTint = if (useAccent) NeonTheme.Secondary else NeonTheme.OnSurface
+    val resolvedIconTint = iconTint ?: if (useAccent) NeonTheme.Secondary else NeonTheme.OnSurface
+    val buttonSize = if (compact) 32.dp else 40.dp
+    val iconSize = if (compact) 14.dp else 18.dp
+    val bottomPad = if (compact) 4.dp else 8.dp
 
     Box(
         modifier = Modifier
-            .padding(bottom = 8.dp)
-            .size(40.dp)
+            .padding(bottom = bottomPad)
+            .size(buttonSize)
             .clip(MapUiShape)
             .background(bg)
             .border(1.dp, border, MapUiShape)
             .shadow(
                 elevation = if (useAccent) 6.dp else 4.dp,
                 spotColor = if (useAccent) {
-                    NeonTheme.Secondary.copy(alpha = 0.2f)
+                    accentColor.copy(alpha = 0.25f)
                 } else {
                     Color.Black.copy(alpha = 0.3f)
                 }
@@ -465,7 +566,7 @@ private fun MapControlButton(
             imageVector = icon,
             contentDescription = null,
             tint = resolvedIconTint,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(iconSize)
         )
     }
 }

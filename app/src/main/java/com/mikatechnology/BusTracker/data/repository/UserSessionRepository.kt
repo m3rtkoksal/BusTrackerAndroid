@@ -16,6 +16,8 @@ object UserSessionRepository {
     private const val KEY_PHONE_LEGACY = "phoneNumber"
     private const val KEY_ROLE = "role"
     private const val KEY_GROUP_ID = "groupID"
+    private const val KEY_GROUP_IDS = "groupIDs"
+    private const val KEY_ACTIVE_GROUP_IDS = "activeGroupIDs"
     private const val KEY_GROUP_CODE = "groupCode"
     private const val KEY_GROUP_NAME = "groupName"
 
@@ -52,6 +54,8 @@ object UserSessionRepository {
             name = prefs.getString(KEY_NAME, "") ?: "",
             authUserId = authUserId,
             role = role,
+            groupIDs = prefs.getString(KEY_GROUP_IDS, null)?.splitIds().orEmpty(),
+            activeGroupIDs = prefs.getString(KEY_ACTIVE_GROUP_IDS, null)?.splitIds().orEmpty(),
             groupID = prefs.getString(KEY_GROUP_ID, "") ?: "",
             groupCode = prefs.getString(KEY_GROUP_CODE, "") ?: "",
             groupName = prefs.getString(KEY_GROUP_NAME, "") ?: ""
@@ -70,10 +74,17 @@ object UserSessionRepository {
             .putString(KEY_AUTH_USER_ID, profile.authUserId)
             .putString(KEY_ROLE, profile.role.rawValue)
             .putString(KEY_GROUP_ID, profile.groupID)
+            .putString(KEY_GROUP_IDS, profile.groupIDs.joinIds())
+            .putString(KEY_ACTIVE_GROUP_IDS, profile.activeGroupIDs.joinIds())
             .putString(KEY_GROUP_CODE, profile.groupCode)
             .putString(KEY_GROUP_NAME, profile.groupName)
             .apply()
     }
+
+    private fun String.splitIds(): List<String> =
+        split(',').map { it.trim() }.filter { it.isNotEmpty() }
+
+    private fun List<String>.joinIds(): String = joinToString(",")
 
     fun clear(context: Context) {
         _profile.value = null

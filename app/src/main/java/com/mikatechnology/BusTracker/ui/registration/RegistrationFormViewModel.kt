@@ -103,6 +103,14 @@ class RegistrationFormViewModel(
         _name.value = value
     }
 
+    fun applyPrefillServiceCode(code: String) {
+        val normalized = code.trim().uppercase()
+        if (normalized.length >= 4) {
+            _serviceField.value = normalized
+            _serviceFieldError.value = null
+        }
+    }
+
     fun onServiceFieldChange(value: String) {
         _serviceField.value = if (role == MemberRole.Passenger) {
             value.uppercase()

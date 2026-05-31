@@ -23,7 +23,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +49,7 @@ import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mikatechnology.BusTracker.ui.shared.RoleNavBar
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
@@ -69,11 +74,11 @@ fun PassengerHomeView(
 
     var showMyServices by remember { mutableStateOf(false) }
     val selectedTab by tabController.selectedTab.collectAsState()
-    val isTripActive by ShuttleStore.shared.isTripActive.collectAsState()
+    val isTripActive by ShuttleStore.shared.isTripActive.collectAsStateWithLifecycle()
     val driverLocation by ShuttleStore.shared.driverLocation.collectAsState()
     val driverRoute by ShuttleStore.shared.driverRoute.collectAsState()
     val morningPickups by ShuttleStore.shared.morningPickups.collectAsState()
-    val members by ShuttleStore.shared.members.collectAsState()
+    val members by ShuttleStore.shared.members.collectAsStateWithLifecycle()
 
     val showTripAttendanceSheet by viewModel.showTripStartedAttendanceSheet.collectAsState()
     val pendingAttendance by viewModel.pendingAttendanceStatus.collectAsState()
@@ -90,11 +95,15 @@ fun PassengerHomeView(
 
     var wasTripActive by remember { mutableStateOf(isTripActive) }
 
-    LaunchedEffect(profile.groupID) {
-        viewModel.onAppear(profile.groupID)
+    LaunchedEffect(profile.primaryGroupID) {
+        viewModel.onAppear(profile.primaryGroupID)
     }
 
-    LaunchedEffect(isTripActive, myAttendance) {
+    val memberLoaded = members.any { it.id == profile.memberID }
+    val tripAttendancePromptKey =
+        "$isTripActive-${myAttendance.name}-$memberLoaded-${members.size}"
+
+    LaunchedEffect(tripAttendancePromptKey) {
         if (isTripActive && !wasTripActive) {
             viewModel.onTripActiveChanged(false, true, myAttendance)
         } else if (!isTripActive && wasTripActive) {
@@ -102,6 +111,17 @@ fun PassengerHomeView(
         }
         wasTripActive = isTripActive
         viewModel.presentTripAttendanceSheetIfNeeded(isTripActive, myAttendance)
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, tripAttendancePromptKey) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.presentTripAttendanceSheetIfNeeded(isTripActive, myAttendance)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     BaseViewShell(viewModel = viewModel, modifier = modifier) {
@@ -130,7 +150,8 @@ fun PassengerHomeView(
                             onAttendanceSelected = { status ->
                                 viewModel.updateAttendance(status, context)
                             },
-                            onOpenMap = { tabController.select(PassengerHomeTab.Map) }
+                            onOpenMap = { tabController.select(PassengerHomeTab.Map) },
+                            modifier = Modifier.fillMaxSize()
                         )
                     }
 
@@ -143,6 +164,8 @@ fun PassengerHomeView(
                             driverRoute = driverRoute,
                             draftCoordinate = draftCoordinate,
                             savedPickup = savedPickup,
+                            myAttendance = myAttendance,
+                            onAttendanceClick = { tabController.select(PassengerHomeTab.Service) },
                             isTripActive = isTripActive,
                             isSaving = isSavingPickup,
                             onMapClick = { latLng ->
@@ -157,9 +180,6 @@ fun PassengerHomeView(
                     PassengerHomeTab.Settings -> {
                         PassengerSettingsTab(
                             profile = profile,
-                            onCopyCode = {
-                                viewModel.copyGroupCode(context, profile.groupCode)
-                            },
                             onSignOut = {
                                 viewModel.requestSignOut {
                                     viewModel.signOut(context)

@@ -278,6 +278,8 @@ private fun ScreenBody(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp)
                     .padding(top = 8.dp)
             ) {
                 androidx.compose.animation.AnimatedVisibility(
@@ -415,11 +417,13 @@ private fun ToastBanner(
                 .weight(1f)
                 .padding(start = 10.dp)
         ) {
-            Text(
-                text = popup.title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
+            if (popup.title.isNotBlank()) {
+                Text(
+                    text = popup.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
             Text(
                 text = popup.message,
                 style = MaterialTheme.typography.bodySmall,

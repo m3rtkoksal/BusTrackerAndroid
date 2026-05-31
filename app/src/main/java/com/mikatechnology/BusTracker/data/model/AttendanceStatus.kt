@@ -25,6 +25,14 @@ enum class AttendanceStatus(val rawValue: String) {
             Unknown -> Icons.Default.Help
         }
 
+    /** Harita sekmesi sol üst katılım kutusu. */
+    val mapTabLabel: String
+        get() = when (this) {
+            Coming -> "Geliyorum"
+            NotComing -> "Gelmiyorum"
+            Unknown -> "Belirsiz"
+        }
+
     companion object {
         fun fromRaw(value: String?): AttendanceStatus? {
             return entries.firstOrNull { it.rawValue == value }

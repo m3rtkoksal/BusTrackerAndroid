@@ -146,7 +146,8 @@ fun ShuttleMapView(
                 )
             }
 
-            driverLocation?.let { location ->
+            if (isTripActive) {
+                driverLocation?.let { location ->
                 // Custom driver marker - matches iOS "location.north.fill" arrow style with neon glow
                 MarkerComposable(
                     state = MarkerState(LatLng(location.latitude, location.longitude)),
@@ -154,6 +155,7 @@ fun ShuttleMapView(
                     snippet = "Sürücü"
                 ) {
                     DriverMarkerView(driverName = location.driverName)
+                }
                 }
             }
 
@@ -230,11 +232,13 @@ class ShuttleMapCamera(
         this.extraCoordinates = extraCoordinates
     }
 
-    suspend fun fitCamera(animated: Boolean = true) {
+    suspend fun fitCamera(animated: Boolean = true, includeDriver: Boolean = true) {
         val coordinates = buildList {
             addAll(morningPickups.map { LatLng(it.latitude, it.longitude) })
             addAll(extraCoordinates)
-            driverLocation?.let { add(LatLng(it.latitude, it.longitude)) }
+            if (includeDriver) {
+                driverLocation?.let { add(LatLng(it.latitude, it.longitude)) }
+            }
         }
 
         if (coordinates.isEmpty()) {
