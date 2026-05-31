@@ -23,7 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
-import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -43,7 +43,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
@@ -229,7 +232,7 @@ fun PassengerMapTabView(
                         } else {
                             Icons.Default.Navigation
                         },
-                        highlighted = false,
+                        accentStyle = true,
                         onClick = { togglePassengerMapFocus() }
                     )
                 }
@@ -240,19 +243,21 @@ fun PassengerMapTabView(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(MapUiShape)
                     .background(NeonTheme.SurfaceContainer.copy(alpha = 0.82f))
+                    .background(Color.Black.copy(alpha = 0.14f))
                     .border(
                         width = 1.dp,
                         color = NeonTheme.Secondary.copy(alpha = 0.22f),
                         shape = MapUiShape
                     )
-                    .padding(14.dp),
+                    .padding(horizontal = 12.dp)
+                    .padding(top = 16.dp, bottom = 14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -261,7 +266,8 @@ fun PassengerMapTabView(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 0.5.sp,
-                    color = NeonTheme.OnSurfaceVariant
+                    color = NeonTheme.OnSurfaceVariant,
+                    lineHeight = 12.sp
                 )
 
                 SavePickupButton(
@@ -376,7 +382,7 @@ private fun SavePickupButton(
             .background(NeonTheme.SurfaceContainerHigh.copy(alpha = 0.9f))
             .border(
                 width = 1.dp,
-                color = NeonTheme.Secondary.copy(alpha = 0.45f),
+                color = NeonTheme.MapSaveAction.copy(alpha = 0.5f),
                 shape = MapUiShape
             )
             .clickable(enabled = canTap) { onClick() }
@@ -386,23 +392,30 @@ private fun SavePickupButton(
     ) {
         if (isSaving) {
             CircularProgressIndicator(
-                color = NeonTheme.Secondary,
+                color = NeonTheme.MapSaveAction,
                 strokeWidth = 2.dp,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(20.dp)
             )
         } else {
             Icon(
-                imageVector = Icons.Default.Place,
+                imageVector = Icons.Default.LocationOn,
                 contentDescription = null,
-                tint = NeonTheme.Secondary,
+                tint = NeonTheme.MapSaveAction,
                 modifier = Modifier.size(18.dp)
             )
             Text(
                 text = "BİNİŞ NOKTAMI KAYDET",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 1.sp,
-                color = NeonTheme.Secondary,
+                style = TextStyle(
+                    color = NeonTheme.MapSaveAction,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp,
+                    shadow = Shadow(
+                        color = NeonTheme.MapSaveAction.copy(alpha = 0.55f),
+                        offset = Offset.Zero,
+                        blurRadius = 8f
+                    )
+                ),
                 modifier = Modifier.padding(start = 8.dp)
             )
         }
@@ -413,18 +426,22 @@ private fun SavePickupButton(
 private fun MapControlButton(
     icon: ImageVector,
     highlighted: Boolean = false,
+    /** Koyu kutu + ince neon çerçeve ve ikon (konum tuşu, iOS gibi). */
+    accentStyle: Boolean = false,
     onClick: () -> Unit
 ) {
+    val useAccent = highlighted || accentStyle
     val bg = if (highlighted) {
         NeonTheme.Secondary.copy(alpha = 0.2f)
     } else {
         NeonTheme.SurfaceContainerHigh.copy(alpha = 0.9f)
     }
-    val border = if (highlighted) {
+    val border = if (useAccent) {
         NeonTheme.Secondary.copy(alpha = 0.5f)
     } else {
         NeonTheme.Outline.copy(alpha = 0.3f)
     }
+    val resolvedIconTint = if (useAccent) NeonTheme.Secondary else NeonTheme.OnSurface
 
     Box(
         modifier = Modifier
@@ -434,8 +451,8 @@ private fun MapControlButton(
             .background(bg)
             .border(1.dp, border, MapUiShape)
             .shadow(
-                elevation = if (highlighted) 6.dp else 4.dp,
-                spotColor = if (highlighted) {
+                elevation = if (useAccent) 6.dp else 4.dp,
+                spotColor = if (useAccent) {
                     NeonTheme.Secondary.copy(alpha = 0.2f)
                 } else {
                     Color.Black.copy(alpha = 0.3f)
@@ -447,7 +464,7 @@ private fun MapControlButton(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (highlighted) NeonTheme.Secondary else NeonTheme.OnSurface,
+            tint = resolvedIconTint,
             modifier = Modifier.size(18.dp)
         )
     }

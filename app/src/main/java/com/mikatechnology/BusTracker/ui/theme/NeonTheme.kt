@@ -25,6 +25,8 @@ object NeonTheme {
     val OnSurfaceVariant = Color(0xFFA098B0)
     val Primary = Color(0xFFFF2D78)
     val Secondary = Color(0xFF00FFCC)
+    /** Harita: “Biniş noktamı kaydet” — iOS `mapSaveAction` ile aynı */
+    val MapSaveAction = Color(0xFF6EFFF7)
     val Outline = Color(0xFF5A5068)
     val Error = Color(0xFFFF4444)
     /** Harita: sürücü canlı konum pini */
