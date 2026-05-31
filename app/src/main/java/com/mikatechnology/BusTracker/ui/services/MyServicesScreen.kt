@@ -5,7 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -23,6 +23,8 @@ import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
+
+private val MyServicesCardShape = RectangleShape
 
 @Composable
 fun MyServicesScreen(
@@ -96,7 +98,7 @@ fun MyServicesScreen(
                         .width(48.dp)
                         .height(4.dp)
                         .background(NeonTheme.Primary)
-                        .clip(RoundedCornerShape(2.dp))
+                        .clip(MyServicesCardShape)
                 )
             }
 
@@ -173,7 +175,8 @@ fun MyServicesScreen(
                     containerColor = NeonTheme.Background,
                     contentColor = NeonTheme.Primary
                 ),
-                border = BorderStroke(2.dp, NeonTheme.Primary)
+                border = BorderStroke(2.dp, NeonTheme.Primary),
+                shape = MyServicesCardShape
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -206,7 +209,7 @@ private fun ActiveServiceCard(service: ServiceDisplay) {
         colors = CardDefaults.cardColors(
             containerColor = NeonTheme.SurfaceContainerHigh
         ),
-        shape = RoundedCornerShape(16.dp),
+        shape = MyServicesCardShape,
         border = BorderStroke(1.dp, NeonTheme.Secondary.copy(alpha = 0.5f))
     ) {
         Column(
@@ -224,7 +227,7 @@ private fun ActiveServiceCard(service: ServiceDisplay) {
                     modifier = Modifier
                         .background(NeonTheme.Secondary)
                         .padding(horizontal = 8.dp, vertical = 4.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(MyServicesCardShape)
                 )
             }
 
@@ -261,7 +264,7 @@ private fun ActiveServiceCard(service: ServiceDisplay) {
                     color = NeonTheme.Secondary,
                     modifier = Modifier
                         .background(NeonTheme.Secondary.copy(alpha = 0.15f))
-                        .border(1.dp, NeonTheme.Secondary.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                        .border(1.dp, NeonTheme.Secondary.copy(alpha = 0.4f), MyServicesCardShape)
                         .padding(horizontal = 10.dp, vertical = 5.dp)
                 )
             }
@@ -276,7 +279,7 @@ private fun ServiceCard(service: ServiceDisplay) {
         colors = CardDefaults.cardColors(
             containerColor = NeonTheme.SurfaceContainer
         ),
-        shape = RoundedCornerShape(12.dp),
+        shape = MyServicesCardShape,
         border = BorderStroke(1.dp, NeonTheme.OnSurface.copy(alpha = 0.06f))
     ) {
         Row(
@@ -303,6 +306,7 @@ private fun ServiceCard(service: ServiceDisplay) {
                     contentColor = NeonTheme.Primary
                 ),
                 border = BorderStroke(1.dp, NeonTheme.Primary.copy(alpha = 0.3f)),
+                shape = MyServicesCardShape,
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(
@@ -323,7 +327,7 @@ private fun EmptyRoutesCard() {
         colors = CardDefaults.cardColors(
             containerColor = NeonTheme.SurfaceContainer
         ),
-        shape = RoundedCornerShape(12.dp),
+        shape = MyServicesCardShape,
         border = BorderStroke(1.dp, NeonTheme.Outline.copy(alpha = 0.3f))
     ) {
         Column(
@@ -383,12 +387,11 @@ data class ServiceDisplay(
 
 @Composable
 private fun MyServicesBackButton(onClick: () -> Unit) {
-    val shape = RoundedCornerShape(10.dp)
     Box(
         modifier = Modifier
-            .clip(shape)
+            .clip(MyServicesCardShape)
             .background(NeonTheme.SurfaceContainer)
-            .border(1.dp, NeonTheme.Secondary.copy(alpha = 0.35f), shape)
+            .border(1.dp, NeonTheme.Secondary.copy(alpha = 0.35f), MyServicesCardShape)
             .clickable(onClick = onClick)
             .padding(10.dp),
         contentAlignment = Alignment.Center

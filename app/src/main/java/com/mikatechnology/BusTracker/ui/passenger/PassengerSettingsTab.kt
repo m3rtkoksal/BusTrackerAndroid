@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
@@ -24,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mikatechnology.BusTracker.data.model.UserProfile
+import com.mikatechnology.BusTracker.ui.settings.SettingsCardShape
 import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountFooter
 import com.mikatechnology.BusTracker.ui.settings.SettingsSignOutRow
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
@@ -86,12 +86,12 @@ private fun SettingsRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(SettingsCardShape)
             .background(NeonTheme.SurfaceContainer)
             .border(
                 width = 1.dp,
                 color = NeonTheme.Outline.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(8.dp)
+                shape = SettingsCardShape
             )
             .then(
                 if (onClick != null) Modifier.clickable { onClick() } else Modifier

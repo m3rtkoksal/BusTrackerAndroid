@@ -6,7 +6,7 @@ import com.google.firebase.messaging.RemoteMessage
 class BusTrackerMessagingService : FirebaseMessagingService() {
     override fun onCreate() {
         super.onCreate()
-        NotificationService.createNotificationChannel(this)
+        NotificationService.createNotificationChannels(this)
     }
 
     override fun onNewToken(token: String) {

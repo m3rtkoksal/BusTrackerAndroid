@@ -62,6 +62,7 @@ import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.ui.map.resolveDriverMapLocation
 import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
 import com.mikatechnology.BusTracker.ui.shared.RoleNavBar
+import com.mikatechnology.BusTracker.ui.settings.SettingsCardShape
 import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountFooter
 import com.mikatechnology.BusTracker.ui.settings.SettingsSignOutRow
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
@@ -415,9 +416,14 @@ private fun DriverSettingsRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(SettingsCardShape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .background(NeonTheme.SurfaceContainer)
-            .border(1.dp, NeonTheme.Outline.copy(alpha = 0.3f))
+            .border(
+                width = 1.dp,
+                color = NeonTheme.Outline.copy(alpha = 0.3f),
+                shape = SettingsCardShape
+            )
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

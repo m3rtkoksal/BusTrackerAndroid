@@ -64,7 +64,7 @@ fun DriverMapTabView(
 ) {
     var mapCamera by remember { mutableStateOf<ShuttleMapCamera?>(null) }
     val scope = rememberCoroutineScope()
-    val nextPickup = morningPickups.firstOrNull()
+    val nextPickup = nearestMorningPickup(driverLocation, morningPickups)
 
     LaunchedEffect(driverLocation?.updatedAt, morningPickups.size, mapCamera) {
         mapCamera?.updateData(driverLocation, morningPickups)
@@ -370,6 +370,34 @@ private fun BentoCard(
             }
         }
     }
+}
+
+/** Firestore sırası değil — sürücüye en yakın geçerli biniş noktası. */
+private fun nearestMorningPickup(
+    driverLocation: DriverLocation?,
+    pickups: List<MorningPickup>
+): MorningPickup? {
+    val valid = pickups.filter { isValidPickupCoordinate(it.latitude, it.longitude) }
+    if (valid.isEmpty()) return pickups.firstOrNull()
+    val driver = driverLocation ?: return valid.firstOrNull()
+    val driverLoc = Location("driver").apply {
+        latitude = driver.latitude
+        longitude = driver.longitude
+    }
+    return valid.minByOrNull { pickup ->
+        val stop = Location("stop").apply {
+            latitude = pickup.latitude
+            longitude = pickup.longitude
+        }
+        driverLoc.distanceTo(stop)
+    }
+}
+
+private fun isValidPickupCoordinate(latitude: Double, longitude: Double): Boolean {
+    if (!latitude.isFinite() || !longitude.isFinite()) return false
+    if (kotlin.math.abs(latitude) > 90 || kotlin.math.abs(longitude) > 180) return false
+    if (kotlin.math.abs(latitude) <= 0.01 && kotlin.math.abs(longitude) <= 0.01) return false
+    return true
 }
 
 private fun distanceToPickup(driverLocation: DriverLocation?, pickup: MorningPickup): String? {

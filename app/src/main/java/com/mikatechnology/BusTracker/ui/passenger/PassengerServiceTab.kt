@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -22,7 +22,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -33,6 +39,8 @@ import androidx.compose.ui.unit.sp
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.data.model.UserProfile
+import com.mikatechnology.BusTracker.services.PassengerWeatherCardModel
+import com.mikatechnology.BusTracker.services.PassengerWeatherService
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -42,6 +50,7 @@ import java.util.Locale
 
 private val WarningColor = Color(0xFFFFE04A)
 private val ErrorRed = Color(0xFFFF4444)
+private val ServiceCardShape = RectangleShape
 
 @Composable
 fun PassengerServiceTab(
@@ -54,6 +63,27 @@ fun PassengerServiceTab(
     onOpenMap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    var pickupWeather by remember { mutableStateOf<PassengerWeatherCardModel?>(null) }
+    var pickupWeatherLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(savedMorningPickup?.latitude, savedMorningPickup?.longitude) {
+        val pickup = savedMorningPickup
+        if (pickup == null) {
+            pickupWeather = null
+            pickupWeatherLoading = false
+            return@LaunchedEffect
+        }
+        pickupWeatherLoading = true
+        pickupWeather = null
+        pickupWeather = PassengerWeatherService.load(
+            context = context.applicationContext,
+            latitude = pickup.latitude,
+            longitude = pickup.longitude
+        )
+        pickupWeatherLoading = false
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -98,12 +128,12 @@ fun PassengerServiceTab(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(ServiceCardShape)
                 .background(NeonTheme.SurfaceContainer)
                 .border(
                     width = 1.dp,
                     color = NeonTheme.Secondary.copy(alpha = 0.22f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = ServiceCardShape
                 )
                 .padding(16.dp)
         ) {
@@ -177,12 +207,12 @@ fun PassengerServiceTab(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(ServiceCardShape)
                 .background(NeonTheme.SurfaceContainer)
                 .border(
                     width = 1.dp,
                     color = NeonTheme.Outline.copy(alpha = 0.25f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = ServiceCardShape
                 )
                 .padding(16.dp)
         ) {
@@ -224,12 +254,12 @@ fun PassengerServiceTab(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(ServiceCardShape)
                     .background(NeonTheme.SurfaceContainerHigh)
                     .border(
                         width = 1.dp,
                         color = NeonTheme.Secondary.copy(alpha = 0.45f),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = ServiceCardShape
                     )
                     .clickable { onOpenMap() }
                     .padding(vertical = 14.dp),
@@ -251,6 +281,13 @@ fun PassengerServiceTab(
                 )
             }
         }
+
+        if (savedMorningPickup != null) {
+            PassengerClothingAdviceCard(
+                model = pickupWeather,
+                isLoading = pickupWeatherLoading
+            )
+        }
     }
 }
 
@@ -271,9 +308,9 @@ private fun AttendanceButton(
 
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(ServiceCardShape)
             .background(bg)
-            .border( if (isSelected) 2.dp else 1.dp, borderColor, RoundedCornerShape(12.dp) )
+            .border(if (isSelected) 2.dp else 1.dp, borderColor, ServiceCardShape)
             .clickable(enabled = enabled && !isLoading) { onClick() }
             .padding(vertical = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally

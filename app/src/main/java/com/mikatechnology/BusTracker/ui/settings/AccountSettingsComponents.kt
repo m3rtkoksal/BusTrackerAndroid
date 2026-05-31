@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Delete
@@ -23,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
+/** Ayarlar sekmesi kartları — köşe radius 0. */
+val SettingsCardShape = RectangleShape
+
 @Composable
 fun SettingsSignOutRow(
     onClick: () -> Unit,
@@ -31,10 +36,12 @@ fun SettingsSignOutRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .clip(SettingsCardShape)
             .background(NeonTheme.SurfaceContainer)
             .border(
                 width = 1.dp,
-                color = NeonTheme.Error.copy(alpha = 0.3f)
+                color = NeonTheme.Error.copy(alpha = 0.3f),
+                shape = SettingsCardShape
             )
             .clickable(onClick = onClick)
             .padding(16.dp),
@@ -75,6 +82,7 @@ fun SettingsDeleteAccountFooter(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 12.dp)
+                .clip(SettingsCardShape)
                 .background(NeonTheme.Error)
                 .clickable(onClick = onClick)
                 .padding(16.dp),

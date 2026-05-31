@@ -66,7 +66,9 @@ fun ShuttleMapView(
     onCameraReady: (ShuttleMapCamera) -> Unit = {},
     onMapClick: ((LatLng) -> Unit)? = null,
     selectedCoordinate: LatLng? = null,
-    autoFitCameraOnUpdate: Boolean = true
+    autoFitCameraOnUpdate: Boolean = true,
+    /** Yolcu: uydu (iOS hybrid gibi). Sürücü: NORMAL navigasyon. */
+    mapType: MapType = MapType.NORMAL
 ) {
     if (BuildConfig.MAPS_API_KEY.isBlank()) {
         MapApiKeyMissingBanner(modifier = modifier)
@@ -110,8 +112,8 @@ fun ShuttleMapView(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
             properties = MapProperties(
-                mapType = MapType.NORMAL,
-                isBuildingEnabled = true,
+                mapType = mapType,
+                isBuildingEnabled = mapType == MapType.NORMAL,
                 isTrafficEnabled = false
             ),
             uiSettings = MapUiSettings(
