@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.mikatechnology.BusTracker.localization.L10n
 
 enum class AttendanceStatus(val rawValue: String) {
     Coming("coming"),
@@ -13,9 +14,9 @@ enum class AttendanceStatus(val rawValue: String) {
 
     val title: String
         get() = when (this) {
-            Coming -> "Gelecek"
-            NotComing -> "Gelmeyecek"
-            Unknown -> "Belirtmedi"
+            Coming -> L10n.attendanceComing
+            NotComing -> L10n.attendanceNotComing
+            Unknown -> L10n.attendanceUnknown
         }
 
     val icon: ImageVector
@@ -25,12 +26,11 @@ enum class AttendanceStatus(val rawValue: String) {
             Unknown -> Icons.Default.Help
         }
 
-    /** Harita sekmesi sol üst katılım kutusu. */
     val mapTabLabel: String
         get() = when (this) {
-            Coming -> "Geliyorum"
-            NotComing -> "Gelmiyorum"
-            Unknown -> "Belirsiz"
+            Coming -> L10n.attendanceComingSelf
+            NotComing -> L10n.attendanceNotComingSelf
+            Unknown -> L10n.attendanceUncertain
         }
 
     companion object {

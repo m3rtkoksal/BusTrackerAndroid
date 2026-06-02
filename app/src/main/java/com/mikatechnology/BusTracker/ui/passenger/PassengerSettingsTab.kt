@@ -28,11 +28,15 @@ import com.mikatechnology.BusTracker.ui.settings.CopyServiceCode
 import com.mikatechnology.BusTracker.ui.settings.SettingsCardShape
 import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountFooter
 import com.mikatechnology.BusTracker.ui.settings.SettingsSignOutRow
+import com.mikatechnology.BusTracker.localization.L10n
+import com.mikatechnology.BusTracker.ui.settings.LanguageSettingsRow
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
 @Composable
 fun PassengerSettingsTab(
     profile: UserProfile,
+    currentLanguage: com.mikatechnology.BusTracker.localization.AppLanguage,
+    onOpenLanguagePicker: () -> Unit,
     onSignOut: () -> Unit,
     onDeleteAccount: () -> Unit,
     modifier: Modifier = Modifier
@@ -49,7 +53,7 @@ fun PassengerSettingsTab(
         ) {
             if (profile.groupCode.isNotBlank()) {
                 SettingsRow(
-                    title = "SERVİS KODU",
+                    title = L10n.settingsServiceCode.uppercase(),
                     value = profile.groupCode,
                     onClick = {
                         val copied = CopyServiceCode.copy(context, profile.groupCode)
@@ -66,15 +70,20 @@ fun PassengerSettingsTab(
             }
 
             SettingsRow(
-                title = "ADINIZ",
+                title = L10n.settingsYourName.uppercase(),
                 value = profile.name,
                 onClick = null
             )
 
             SettingsRow(
-                title = "SERVİS",
+                title = L10n.settingsShuttle.uppercase(),
                 value = profile.groupName,
                 onClick = null
+            )
+
+            LanguageSettingsRow(
+                currentLanguage = currentLanguage,
+                onClick = onOpenLanguagePicker
             )
 
             SettingsSignOutRow(onClick = onSignOut)

@@ -59,9 +59,13 @@ import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.services.LocationAuthStatus
 import com.mikatechnology.BusTracker.services.LocationPermissionRole
 import com.mikatechnology.BusTracker.services.LocationTracker
+import com.mikatechnology.BusTracker.localization.LanguageManager
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.map.resolveDriverMapLocation
 import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
 import com.mikatechnology.BusTracker.ui.shared.RoleNavBar
+import com.mikatechnology.BusTracker.ui.settings.LanguagePickerOverlay
+import com.mikatechnology.BusTracker.ui.settings.LanguageSettingsRow
 import com.mikatechnology.BusTracker.ui.settings.SettingsCardShape
 import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountFooter
 import com.mikatechnology.BusTracker.ui.settings.SettingsSignOutRow
@@ -89,7 +93,9 @@ fun DriverHomeView(
 
     val selectedTab by tabController.selectedTab.collectAsStateWithLifecycle()
     var showMyServices by remember { mutableStateOf(false) }
+    var showLanguagePicker by remember { mutableStateOf(false) }
     var showAlwaysLocationGuide by remember { mutableStateOf(false) }
+    val appLanguage by LanguageManager.language.collectAsStateWithLifecycle()
     var waitingForSettingsReturn by remember { mutableStateOf(false) }
 
     val members by ShuttleStore.shared.members.collectAsStateWithLifecycle()
@@ -249,6 +255,8 @@ fun DriverHomeView(
 
                         DriverHomeTab.Settings -> DriverSettingsTab(
                             profile = profile,
+                            currentLanguage = appLanguage,
+                            onOpenLanguagePicker = { showLanguagePicker = true },
                             onSignOut = {
                                 viewModel.requestSignOut {
                                     viewModel.signOut(context)
@@ -341,6 +349,24 @@ fun DriverHomeView(
                     )
                 }
             }
+
+            AnimatedVisibility(
+                visible = showLanguagePicker,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(5f)
+            ) {
+                LanguagePickerOverlay(
+                    selectedLanguage = appLanguage,
+                    onSelect = { language ->
+                        LanguageManager.setLanguage(context, language)
+                        showLanguagePicker = false
+                    },
+                    onDismiss = { showLanguagePicker = false }
+                )
+            }
         }
     }
 }
@@ -364,7 +390,7 @@ private fun DriverTopBar(
                         .shadow(4.dp, spotColor = NeonTheme.Secondary.copy(alpha = 0.8f))
                 )
                 Text(
-                    text = "AKTİF",
+                    text = L10n.active,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp,
@@ -378,6 +404,8 @@ private fun DriverTopBar(
 @Composable
 fun DriverSettingsTab(
     profile: UserProfile,
+    currentLanguage: com.mikatechnology.BusTracker.localization.AppLanguage,
+    onOpenLanguagePicker: () -> Unit,
     onSignOut: () -> Unit,
     onDeleteAccount: () -> Unit,
     modifier: Modifier = Modifier
@@ -394,7 +422,7 @@ fun DriverSettingsTab(
         ) {
             if (profile.groupCode.isNotBlank()) {
                 DriverSettingsRow(
-                    title = "Servis Kodu",
+                    title = L10n.settingsServiceCode,
                     value = profile.groupCode,
                     onClick = {
                         val copied = com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.copy(
@@ -406,10 +434,16 @@ fun DriverSettingsTab(
                 )
             }
             DriverSettingsRow(
-                title = "Adınız",
+                title = L10n.settingsYourName,
                 value = profile.name,
                 onClick = null
             )
+
+            LanguageSettingsRow(
+                currentLanguage = currentLanguage,
+                onClick = onOpenLanguagePicker
+            )
+
             SettingsSignOutRow(onClick = onSignOut)
         }
 

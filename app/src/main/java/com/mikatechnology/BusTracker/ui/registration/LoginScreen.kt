@@ -19,6 +19,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mikatechnology.BusTracker.auth.GoogleSignInHelper
 import com.mikatechnology.BusTracker.base.BaseViewShell
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
 @Composable
@@ -49,7 +50,7 @@ fun LoginScreen(
             NeonRegistrationHero(
                 icon = Icons.Default.Login,
                 title = "",
-                subtitle = "Google hesabınızla giriş yapın.",
+                subtitle = L10n.signInWithGoogleHint,
                 accent = NeonTheme.Secondary
             )
 
@@ -59,7 +60,7 @@ fun LoginScreen(
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     GoogleSignInButton(
-                        text = "Google ile Giriş Yap",
+                        text = L10n.signInWithGoogle,
                         loading = isLoading || uiLoading.isLoading,
                         enabled = activity != null,
                         onClick = {
@@ -72,7 +73,7 @@ fun LoginScreen(
             }
 
             RegistrationBackButton(
-                text = "Hesap oluşturmaya dön",
+                text = L10n.backToCreateAccount,
                 onClick = onBackToRegister
             )
         }

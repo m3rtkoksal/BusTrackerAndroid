@@ -9,6 +9,7 @@ import com.mikatechnology.BusTracker.data.repository.AuthError
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.NotificationService
 import kotlinx.coroutines.launch
 
@@ -16,7 +17,7 @@ class LoginViewModel : BaseViewModel() {
 
     init {
         configureScreen(
-            title = "Giriş Yap",
+            title = L10n.signInAction,
             navigationBarStyle = NavigationBarStyle.NeonAuth,
             usesLargeTitle = false,
             hidesNavigationBar = true,
@@ -26,12 +27,12 @@ class LoginViewModel : BaseViewModel() {
 
     fun signInWithGoogle(context: Context, data: Intent?) {
         viewModelScope.launch {
-            setLoading(true, "Giriş yapılıyor...")
+            setLoading(true, L10n.signingIn)
             try {
                 AuthRepository.signInWithGoogle(data)
                 val userId = AuthRepository.currentUserId
                 if (userId == null) {
-                    showError("Giriş yapılamadı.")
+                    showError(L10n.signInFailed)
                     return@launch
                 }
 
@@ -43,13 +44,13 @@ class LoginViewModel : BaseViewModel() {
                         NotificationService.syncTokenForProfile(context, groupID, profile.memberID)
                     }
                 } else {
-                    showError("Bu Google hesabıyla kayıtlı profil bulunamadı. Hesabınız silinmiş olabilir; yeni hesap oluşturabilirsiniz.")
+                    showError(L10n.profileNotFound)
                     AuthRepository.signOut()
                 }
             } catch (_: AuthError.SignInCancelled) {
-                // Kullanıcı iptal etti.
+                // User cancelled.
             } catch (error: Exception) {
-                showError(error.localizedMessage ?: "Google ile giriş başarısız.")
+                showError(error.localizedMessage ?: L10n.googleSignInFailed)
             } finally {
                 setLoading(false)
             }

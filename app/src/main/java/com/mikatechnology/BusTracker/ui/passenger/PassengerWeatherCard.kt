@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.PassengerWeatherCardModel
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
@@ -24,6 +25,7 @@ import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 fun PassengerClothingAdviceCard(
     model: PassengerWeatherCardModel?,
     isLoading: Boolean,
+    emptyMessage: String? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -39,7 +41,7 @@ fun PassengerClothingAdviceCard(
             .padding(16.dp)
     ) {
         Text(
-            text = "GİYİM ÖNERİSİ",
+            text = L10n.clothingAdvice,
             fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
             letterSpacing = 1.5.sp,
@@ -76,7 +78,15 @@ fun PassengerClothingAdviceCard(
             }
             isLoading -> {
                 Text(
-                    text = "Biniş noktana göre öneri hazırlanıyor…",
+                    text = L10n.weatherLoading,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = NeonTheme.OnSurfaceVariant
+                )
+            }
+            emptyMessage != null -> {
+                Text(
+                    text = emptyMessage,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = NeonTheme.OnSurfaceVariant
@@ -84,7 +94,7 @@ fun PassengerClothingAdviceCard(
             }
             else -> {
                 Text(
-                    text = "Öneri şu an alınamadı.",
+                    text = L10n.weatherUnavailable,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = NeonTheme.OnSurfaceVariant

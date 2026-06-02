@@ -34,6 +34,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
 @Composable
@@ -95,7 +96,7 @@ fun NeonRoleCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "SEÇ VE DEVAM ET",
+                    text = L10n.selectAndContinue,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.5.sp,
@@ -178,7 +179,7 @@ fun NeonRegistrationHero(
 
 @Composable
 fun RegistrationBackButton(
-    text: String = "ROL SEÇİMİNE DÖN",
+    text: String = L10n.backToRoleSelection,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {

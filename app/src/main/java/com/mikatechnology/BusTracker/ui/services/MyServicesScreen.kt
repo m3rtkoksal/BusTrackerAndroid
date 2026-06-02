@@ -31,6 +31,7 @@ import com.mikatechnology.BusTracker.data.repository.ShuttleError
 import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.NotificationService
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 import kotlinx.coroutines.launch
@@ -86,11 +87,11 @@ fun MyServicesScreen(
     if (joinSuccessMessage != null) {
         AlertDialog(
             onDismissRequest = { joinSuccessMessage = null },
-            title = { Text("Başarılı") },
+            title = { Text(L10n.success) },
             text = { Text(joinSuccessMessage ?: "") },
             confirmButton = {
                 TextButton(onClick = { joinSuccessMessage = null }) {
-                    Text("Tamam")
+                    Text(L10n.ok)
                 }
             }
         )
@@ -122,7 +123,7 @@ fun MyServicesScreen(
             // Big Title
             Column(modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)) {
                 Text(
-                    text = "SERVİSLERİM",
+                    text = L10n.myShuttles,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Black,
                     color = NeonTheme.OnSurface,
@@ -160,7 +161,7 @@ fun MyServicesScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "KAYITLI ROTALAR",
+                        text = L10n.savedRoutes,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = 1.5.sp,
@@ -186,7 +187,7 @@ fun MyServicesScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "KAYITLI ROTALAR",
+                        text = L10n.savedRoutes,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = 1.5.sp,
@@ -227,7 +228,7 @@ fun MyServicesScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "YENİ SERVİS EKLE",
+                            text = L10n.addNewShuttle,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 1.sp
@@ -268,12 +269,13 @@ fun MyServicesScreen(
                                     updated.memberID
                                 )
                                 showAddServiceSheet = false
-                                joinSuccessMessage =
-                                    "${updated.groupName} eklendi ve aktif yapıldı."
+                                joinSuccessMessage = L10n.shuttleAdded(
+                                    updated.groupName.ifBlank { L10n.service }
+                                )
                             } catch (error: ShuttleError) {
-                                addServiceError = error.message ?: "İşlem başarısız."
+                                addServiceError = error.message ?: L10n.operationFailed
                             } catch (error: Exception) {
-                                addServiceError = error.message ?: "İşlem başarısız."
+                                addServiceError = error.message ?: L10n.operationFailed
                             }
                         }
                     },
@@ -302,7 +304,7 @@ private fun ActiveServiceCard(service: ServiceDisplay) {
         ) {
             Row {
                 Text(
-                    text = "SİSTEM AKTİF",
+                    text = L10n.systemActive,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.5.sp,
@@ -327,13 +329,13 @@ private fun ActiveServiceCard(service: ServiceDisplay) {
 
                     if (service.departure != null) {
                         Text(
-                            text = "Başlangıç: ${service.departure}",
+                            text = L10n.startedAt(service.departure),
                             fontSize = 12.sp,
                             color = NeonTheme.OnSurfaceVariant
                         )
                     } else {
                         Text(
-                            text = "Sürücü servisi başlattı",
+                            text = L10n.driverStartedShuttle,
                             fontSize = 12.sp,
                             color = NeonTheme.OnSurfaceVariant
                         )
@@ -341,7 +343,7 @@ private fun ActiveServiceCard(service: ServiceDisplay) {
                 }
 
                 Text(
-                    text = "AKTİF",
+                    text = L10n.active,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = NeonTheme.Secondary,
@@ -393,7 +395,7 @@ private fun ServiceCard(service: ServiceDisplay) {
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = "GEÇİŞ YAP",
+                    text = L10n.switchRoute,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp
@@ -420,14 +422,14 @@ private fun EmptyRoutesCard() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Başka rota yok",
+                text = L10n.noOtherRoute,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = NeonTheme.OnSurface
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Yeni bir servis ekleyerek rotalarını genişletebilirsin.",
+                text = L10n.addShuttleHint,
                 fontSize = 13.sp,
                 color = NeonTheme.OnSurfaceVariant
             )
@@ -447,9 +449,9 @@ private fun buildServicesFromProfile(profile: UserProfile?): List<ServiceDisplay
     return groupIDs.map { gid ->
         val isActiveForUser = profile.activeGroupIDs.contains(gid)
         val name = if (gid == profile.groupID) {
-            profile.groupName.takeIf { it.isNotBlank() } ?: "Servis"
+            profile.groupName.takeIf { it.isNotBlank() } ?: L10n.service
         } else {
-            "Servis ${gid.take(6)}"
+            L10n.shuttleFallbackName(gid.take(6))
         }
 
         ServiceDisplay(
@@ -481,7 +483,7 @@ private fun MyServicesBackButton(onClick: () -> Unit) {
     ) {
         Icon(
             imageVector = Icons.Default.ChevronLeft,
-            contentDescription = "Geri",
+            contentDescription = L10n.back,
             tint = NeonTheme.Secondary,
             modifier = Modifier.size(22.dp)
         )

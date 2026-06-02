@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mikatechnology.BusTracker.base.BaseViewShell
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
 @Composable
@@ -34,16 +35,16 @@ fun RoleSelectionScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             NeonRoleCard(
-                title = "Sürücüyüm",
-                subtitle = "Servisi oluştururum, sabah \"Servisi Başlat\" derim ve konumumu paylaşırım.",
+                title = L10n.iAmDriver,
+                subtitle = L10n.iAmDriverSubtitle,
                 icon = DriverHeroIcon,
                 accent = NeonTheme.Primary,
                 onClick = onSelectDriver
             )
 
             NeonRoleCard(
-                title = "Yolcuyum",
-                subtitle = "Servise katılırım, haritadan takip ederim ve geleceğimi bildiririm.",
+                title = L10n.iAmPassenger,
+                subtitle = L10n.iAmPassengerSubtitle,
                 icon = PassengerHeroIcon,
                 accent = NeonTheme.Secondary,
                 onClick = onSelectPassenger
@@ -51,11 +52,11 @@ fun RoleSelectionScreen(
 
             TextButton(onClick = viewModel::loginTapped) {
                 Text(
-                    text = "Zaten hesabım var — ",
+                    text = "${L10n.alreadyHaveAccount} ",
                     color = NeonTheme.OnSurfaceVariant
                 )
                 Text(
-                    text = "Giriş yap",
+                    text = L10n.signInAction,
                     color = NeonTheme.Secondary,
                     fontWeight = FontWeight.SemiBold
                 )

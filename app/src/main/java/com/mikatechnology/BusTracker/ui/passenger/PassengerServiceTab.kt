@@ -37,19 +37,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.data.model.UserProfile
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.PassengerWeatherCardModel
 import com.mikatechnology.BusTracker.services.PassengerWeatherService
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
-
-
 
 private val WarningColor = Color(0xFFFFE04A)
 private val ErrorRed = Color(0xFFFF4444)
@@ -61,6 +60,8 @@ fun PassengerServiceTab(
     isTripActive: Boolean,
     myAttendance: AttendanceStatus,
     savedMorningPickup: MorningPickup?,
+    draftLatitude: Double?,
+    draftLongitude: Double?,
     isUpdatingAttendance: Boolean,
     onAttendanceSelected: (AttendanceStatus) -> Unit,
     onOpenMap: () -> Unit,
@@ -70,20 +71,28 @@ fun PassengerServiceTab(
     var pickupWeather by remember { mutableStateOf<PassengerWeatherCardModel?>(null) }
     var pickupWeatherLoading by remember { mutableStateOf(false) }
 
-    LaunchedEffect(savedMorningPickup?.latitude, savedMorningPickup?.longitude) {
-        val pickup = savedMorningPickup
-        if (pickup == null) {
+    val weatherLatitude = savedMorningPickup?.latitude ?: draftLatitude
+    val weatherLongitude = savedMorningPickup?.longitude ?: draftLongitude
+    val weatherCoordinateKey = weatherLatitude?.let { lat ->
+        weatherLongitude?.let { lng -> "$lat,$lng" }
+    } ?: "none"
+
+    LaunchedEffect(weatherCoordinateKey) {
+        val lat = weatherLatitude
+        val lng = weatherLongitude
+        if (lat == null || lng == null) {
             pickupWeather = null
             pickupWeatherLoading = false
             return@LaunchedEffect
         }
+        val cached = PassengerWeatherService.cachedModel(context, lat, lng)
+        if (cached != null) {
+            pickupWeather = cached
+            pickupWeatherLoading = false
+            return@LaunchedEffect
+        }
         pickupWeatherLoading = true
-        pickupWeather = null
-        pickupWeather = PassengerWeatherService.load(
-            context = context.applicationContext,
-            latitude = pickup.latitude,
-            longitude = pickup.longitude
-        )
+        pickupWeather = PassengerWeatherService.load(context, lat, lng)
         pickupWeatherLoading = false
     }
 
@@ -97,7 +106,6 @@ fun PassengerServiceTab(
             .padding(top = 24.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Header
         Column {
             Text(
                 text = profile.groupName.uppercase(),
@@ -123,7 +131,7 @@ fun PassengerServiceTab(
                         )
                 )
                 Text(
-                    text = if (isTripActive) "Sürücü konumu aktif" else "Servis henüz başlamadı",
+                    text = if (isTripActive) L10n.waitingForDriverLocation else L10n.shuttleNotStarted,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = if (isTripActive) NeonTheme.Secondary else NeonTheme.OnSurfaceVariant
@@ -131,7 +139,6 @@ fun PassengerServiceTab(
             }
         }
 
-        // Attendance Section
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -145,7 +152,7 @@ fun PassengerServiceTab(
                 .padding(16.dp)
         ) {
             Text(
-                text = "BUGÜN GELECEK MİSİNİZ?",
+                text = L10n.attendanceTodayQuestion,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 2.sp,
@@ -162,7 +169,7 @@ fun PassengerServiceTab(
                         tint = if (myAttendance == AttendanceStatus.Coming) NeonTheme.Secondary else ErrorRed
                     )
                     Text(
-                        text = "Seçiminiz: ${myAttendance.title}",
+                        text = L10n.yourChoice(myAttendance.title),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = NeonTheme.OnSurface,
@@ -177,7 +184,7 @@ fun PassengerServiceTab(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 AttendanceButton(
-                    title = "GELİYORUM",
+                    title = L10n.attendanceComingSelf.uppercase(),
                     icon = Icons.Default.CheckCircle,
                     accent = NeonTheme.Secondary,
                     isSelected = myAttendance == AttendanceStatus.Coming,
@@ -188,7 +195,7 @@ fun PassengerServiceTab(
                 )
 
                 AttendanceButton(
-                    title = "GELMİYORUM",
+                    title = L10n.attendanceNotComingSelf.uppercase(),
                     icon = Icons.Default.Close,
                     accent = ErrorRed,
                     isSelected = myAttendance == AttendanceStatus.NotComing,
@@ -200,17 +207,16 @@ fun PassengerServiceTab(
             }
 
             Text(
-                text = "Seçiminiz sürücüye kaydedilir. Servis bitince yeniden seçmeniz gerekir.",
+                text = L10n.attendanceHint,
                 fontSize = 10.sp,
                 color = NeonTheme.Outline,
                 modifier = Modifier
                     .padding(top = 12.dp)
                     .fillMaxWidth(),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                textAlign = TextAlign.Center
             )
         }
 
-        // Pickup Summary
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -224,7 +230,7 @@ fun PassengerServiceTab(
                 .padding(16.dp)
         ) {
             Text(
-                text = "BİNİŞ NOKTASI",
+                text = L10n.pickupPoint,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 1.5.sp,
@@ -242,7 +248,7 @@ fun PassengerServiceTab(
                         tint = NeonTheme.Secondary
                     )
                     Text(
-                        text = "Kayıtlı: $time",
+                        text = L10n.savedAt(time),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = NeonTheme.Secondary,
@@ -251,7 +257,7 @@ fun PassengerServiceTab(
                 }
             } else {
                 Text(
-                    text = "Henüz biniş noktası kaydetmediniz.",
+                    text = L10n.noPickupSaved,
                     color = NeonTheme.OnSurfaceVariant
                 )
             }
@@ -279,7 +285,7 @@ fun PassengerServiceTab(
                     tint = NeonTheme.Secondary
                 )
                 Text(
-                    text = if (savedMorningPickup == null) "HARİTADA BELİRLE" else "HARİTADA DÜZENLE",
+                    text = if (savedMorningPickup == null) L10n.setOnMap else L10n.editOnMap,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 1.sp,
@@ -289,12 +295,11 @@ fun PassengerServiceTab(
             }
         }
 
-        if (savedMorningPickup != null) {
-            PassengerClothingAdviceCard(
-                model = pickupWeather,
-                isLoading = pickupWeatherLoading
-            )
-        }
+        PassengerClothingAdviceCard(
+            model = pickupWeather,
+            isLoading = weatherLatitude != null && weatherLongitude != null && pickupWeatherLoading,
+            emptyMessage = if (weatherLatitude == null || weatherLongitude == null) L10n.weatherNeedsPickup else null
+        )
     }
 }
 

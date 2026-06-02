@@ -2,6 +2,8 @@ package com.mikatechnology.BusTracker.services
 
 import android.content.Context
 import android.location.Geocoder
+import com.mikatechnology.BusTracker.localization.L10n
+import com.mikatechnology.BusTracker.localization.LanguageManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -13,17 +15,19 @@ import kotlin.math.roundToInt
 data class PassengerWeatherCardModel(
     val placeName: String,
     val temperatureC: Int,
-    /** Push bildirimiyle aynı tarz giyim önerisi metni. */
     val advice: String,
     val emoji: String
 ) {
     val contextLine: String
-        get() = "Bugün $placeName · $temperatureC°"
+        get() = L10n.weatherContext(placeName, temperatureC)
 }
 
 object PassengerWeatherService {
     private const val OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
     private const val NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
+    private const val CACHE_TTL_MS = 3_600_000L
+    private const val CACHE_PREFIX = "passengerWeather."
+    private const val PREFS_NAME = "passenger_weather_cache"
     private val NEIGHBORHOOD_ADDRESS_KEYS = listOf(
         "neighbourhood",
         "suburb",
@@ -36,22 +40,101 @@ object PassengerWeatherService {
     private const val HOT_TEMP_C = 31.0
     private const val WET_MM = 0.15
 
+    private data class WeatherCachePayload(
+        val placeName: String,
+        val tempC: Double,
+        val precipitation: Double,
+        val rain: Double,
+        val fetchedAt: Long
+    )
+
+    fun cachedModel(
+        context: Context,
+        latitude: Double,
+        longitude: Double
+    ): PassengerWeatherCardModel? {
+        if (!isValidCoordinate(latitude, longitude)) return null
+        val entry = cachedEntry(context, latitude, longitude) ?: return null
+        return modelFrom(entry)
+    }
+
     suspend fun load(
         context: Context,
         latitude: Double,
         longitude: Double
     ): PassengerWeatherCardModel? {
         if (!isValidCoordinate(latitude, longitude)) return null
+
+        cachedEntry(context, latitude, longitude)?.let { return modelFrom(it) }
+
         val weather = fetchWeather(latitude, longitude) ?: return null
         val placeName = resolvePlaceName(context, latitude, longitude)
-        val (advice, emoji) = clothingAdvice(
+        val entry = WeatherCachePayload(
+            placeName = placeName,
             tempC = weather.tempC,
             precipitation = weather.precipitation,
-            rain = weather.rain
+            rain = weather.rain,
+            fetchedAt = System.currentTimeMillis()
+        )
+        saveCache(context, latitude, longitude, entry)
+        return modelFrom(entry)
+    }
+
+    private fun cacheStorageKey(latitude: Double, longitude: Double): String {
+        return CACHE_PREFIX + String.format(Locale.US, "%.4f,%.4f", latitude, longitude)
+    }
+
+    private fun cachedEntry(
+        context: Context,
+        latitude: Double,
+        longitude: Double
+    ): WeatherCachePayload? {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val raw = prefs.getString(cacheStorageKey(latitude, longitude), null) ?: return null
+        return try {
+            val json = JSONObject(raw)
+            val fetchedAt = json.getLong("fetchedAt")
+            if (System.currentTimeMillis() - fetchedAt >= CACHE_TTL_MS) return null
+            WeatherCachePayload(
+                placeName = json.getString("placeName"),
+                tempC = json.getDouble("tempC"),
+                precipitation = json.getDouble("precipitation"),
+                rain = json.getDouble("rain"),
+                fetchedAt = fetchedAt
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun saveCache(
+        context: Context,
+        latitude: Double,
+        longitude: Double,
+        entry: WeatherCachePayload
+    ) {
+        val json = JSONObject()
+            .put("placeName", entry.placeName)
+            .put("tempC", entry.tempC)
+            .put("precipitation", entry.precipitation)
+            .put("rain", entry.rain)
+            .put("fetchedAt", entry.fetchedAt)
+        context.applicationContext
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(cacheStorageKey(latitude, longitude), json.toString())
+            .apply()
+    }
+
+    private fun modelFrom(entry: WeatherCachePayload): PassengerWeatherCardModel {
+        val (advice, emoji) = clothingAdvice(
+            tempC = entry.tempC,
+            precipitation = entry.precipitation,
+            rain = entry.rain
         )
         return PassengerWeatherCardModel(
-            placeName = placeName,
-            temperatureC = weather.tempC.roundToInt(),
+            placeName = entry.placeName,
+            temperatureC = entry.tempC.roundToInt(),
             advice = advice,
             emoji = emoji
         )
@@ -98,7 +181,6 @@ object PassengerWeatherService {
             }
         }
 
-    /** Mahalle — iOS ile aynı OSM kaynağı; şehir/ilçe yok. */
     private suspend fun resolvePlaceName(
         context: Context,
         latitude: Double,
@@ -107,13 +189,14 @@ object PassengerWeatherService {
         withContext(Dispatchers.IO) {
             fetchNeighborhoodFromNominatim(latitude, longitude)
                 ?: fetchNeighborhoodFromDeviceGeocoder(context, latitude, longitude)
-                ?: "Biniş noktan"
+                ?: L10n.pickupPlaceFallback
         }
 
     private fun fetchNeighborhoodFromNominatim(latitude: Double, longitude: Double): String? {
+        val languageCode = LanguageManager.language.value.code
         val url = URL(
             "$NOMINATIM_URL?lat=$latitude&lon=$longitude&format=json" +
-                "&accept-language=tr&zoom=17"
+                "&accept-language=$languageCode&zoom=17"
         )
         val connection = (url.openConnection() as HttpURLConnection).apply {
             connectTimeout = 8000
@@ -144,7 +227,8 @@ object PassengerWeatherService {
         if (!Geocoder.isPresent()) return null
         return try {
             @Suppress("DEPRECATION")
-            val geocoder = Geocoder(context, Locale("tr", "TR"))
+            val locale = Locale(LanguageManager.language.value.code)
+            val geocoder = Geocoder(context, locale)
             @Suppress("DEPRECATION")
             val addresses = geocoder.getFromLocation(latitude, longitude, 1)
             addresses?.firstOrNull()?.subLocality?.takeIf { it.isNotBlank() }?.trim()
@@ -153,7 +237,6 @@ object PassengerWeatherService {
         }
     }
 
-    /** functions/weather.js ile aynı eşikler; ara sıcaklıklar için ek öneri. */
     private fun clothingAdvice(
         tempC: Double,
         precipitation: Double,
@@ -161,12 +244,12 @@ object PassengerWeatherService {
     ): Pair<String, String> {
         val wet = precipitation >= WET_MM || rain >= WET_MM
         return when {
-            wet -> "Yağmur var — şemsiyeni kap." to "🌧️"
-            tempC <= COLD_TEMP_C -> "Hava soğuk — bere takmadan çıkma." to "🧣"
-            tempC >= HOT_TEMP_C -> "Hava cehennem gibi — şapka tak, su al." to "☀️"
-            tempC >= 22 -> "Hava sıcak — şapka tak, su al." to "☀️"
-            tempC >= 12 -> "Hava serin — ince mont veya hırka al." to "🧥"
-            else -> "Hava soğuk — kalın giyin." to "🧣"
+            wet -> L10n.adviceRain to "🌧️"
+            tempC <= COLD_TEMP_C -> L10n.adviceColdHat to "🧣"
+            tempC >= HOT_TEMP_C -> L10n.adviceVeryHot to "☀️"
+            tempC >= 22 -> L10n.adviceHot to "☀️"
+            tempC >= 12 -> L10n.adviceCool to "🧥"
+            else -> L10n.adviceCold to "🧣"
         }
     }
 }

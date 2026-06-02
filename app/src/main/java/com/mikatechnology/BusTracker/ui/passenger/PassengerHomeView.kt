@@ -50,6 +50,9 @@ import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mikatechnology.BusTracker.localization.LanguageManager
+import com.mikatechnology.BusTracker.localization.L10n
+import com.mikatechnology.BusTracker.ui.settings.LanguagePickerOverlay
 import com.mikatechnology.BusTracker.ui.shared.RoleNavBar
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
@@ -73,6 +76,8 @@ fun PassengerHomeView(
     }
 
     var showMyServices by remember { mutableStateOf(false) }
+    var showLanguagePicker by remember { mutableStateOf(false) }
+    val appLanguage by LanguageManager.language.collectAsStateWithLifecycle()
     val selectedTab by tabController.selectedTab.collectAsState()
     val isTripActive by ShuttleStore.shared.isTripActive.collectAsStateWithLifecycle()
     val driverLocation by ShuttleStore.shared.driverLocation.collectAsState()
@@ -146,6 +151,8 @@ fun PassengerHomeView(
                             isTripActive = isTripActive,
                             myAttendance = myAttendance,
                             savedMorningPickup = savedPickup,
+                            draftLatitude = draftCoordinate?.latitude,
+                            draftLongitude = draftCoordinate?.longitude,
                             isUpdatingAttendance = isUpdatingAttendance,
                             onAttendanceSelected = { status ->
                                 viewModel.updateAttendance(status, context)
@@ -180,6 +187,8 @@ fun PassengerHomeView(
                     PassengerHomeTab.Settings -> {
                         PassengerSettingsTab(
                             profile = profile,
+                            currentLanguage = appLanguage,
+                            onOpenLanguagePicker = { showLanguagePicker = true },
                             onSignOut = {
                                 viewModel.requestSignOut {
                                     viewModel.signOut(context)
@@ -230,7 +239,7 @@ fun PassengerHomeView(
                             .clickable { viewModel.dismissTripAttendanceSheet() }
                     )
                     TripStartedAttendanceSheet(
-                        driverName = driverLocation?.driverName ?: "Sürücü",
+                        driverName = driverLocation?.driverName ?: L10n.driverDefaultName,
                         isLoading = isUpdatingAttendance,
                         pendingStatus = pendingAttendance,
                         onSelectComing = { viewModel.updateAttendance(AttendanceStatus.Coming, context) },
@@ -238,6 +247,24 @@ fun PassengerHomeView(
                         modifier = Modifier.align(Alignment.BottomCenter)
                     )
                 }
+            }
+
+            AnimatedVisibility(
+                visible = showLanguagePicker,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(5f)
+            ) {
+                LanguagePickerOverlay(
+                    selectedLanguage = appLanguage,
+                    onSelect = { language ->
+                        LanguageManager.setLanguage(context, language)
+                        showLanguagePicker = false
+                    },
+                    onDismiss = { showLanguagePicker = false }
+                )
             }
         }
     }
@@ -262,7 +289,7 @@ private fun PassengerTopBar(
                         .shadow(4.dp, spotColor = NeonTheme.Secondary.copy(alpha = 0.8f))
                 )
                 Text(
-                    text = "CANLI",
+                    text = L10n.live,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp,

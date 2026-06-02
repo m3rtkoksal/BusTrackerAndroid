@@ -51,6 +51,7 @@ import com.mikatechnology.BusTracker.BuildConfig
 import com.mikatechnology.BusTracker.data.model.DriverLocation
 import com.mikatechnology.BusTracker.data.model.MapDefaults
 import com.mikatechnology.BusTracker.data.model.MorningPickup
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 import kotlinx.coroutines.delay
 
@@ -152,7 +153,7 @@ fun ShuttleMapView(
                 MarkerComposable(
                     state = MarkerState(LatLng(location.latitude, location.longitude)),
                     title = location.driverName,
-                    snippet = "Sürücü"
+                    snippet = L10n.driver
                 ) {
                     DriverMarkerView(driverName = location.driverName)
                 }

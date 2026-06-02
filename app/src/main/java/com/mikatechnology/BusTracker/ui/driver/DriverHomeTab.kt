@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Tune
+import com.mikatechnology.BusTracker.localization.L10n
 import androidx.compose.ui.graphics.vector.ImageVector
 
 enum class DriverHomeTab {
@@ -13,9 +14,9 @@ enum class DriverHomeTab {
 
     val title: String
         get() = when (this) {
-            Passengers -> "Yolcular"
-            Map -> "Harita"
-            Settings -> "Ayarlar"
+            Passengers -> L10n.tabPassengers
+            Map -> L10n.tabMap
+            Settings -> L10n.tabSettings
         }
 
     val icon: ImageVector

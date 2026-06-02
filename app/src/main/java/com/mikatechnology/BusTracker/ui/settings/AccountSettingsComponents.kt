@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
 /** Ayarlar sekmesi kartları — köşe radius 0. */
@@ -53,7 +54,7 @@ fun SettingsSignOutRow(
             tint = NeonTheme.Error
         )
         Text(
-            text = "Çıkış Yap",
+            text = L10n.signOut,
             color = NeonTheme.Error,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(start = 12.dp)
@@ -94,7 +95,7 @@ fun SettingsDeleteAccountFooter(
                 tint = androidx.compose.ui.graphics.Color.White
             )
             Text(
-                text = "HESABI SİL",
+                text = L10n.deleteAccount.uppercase(),
                 color = androidx.compose.ui.graphics.Color.White,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,

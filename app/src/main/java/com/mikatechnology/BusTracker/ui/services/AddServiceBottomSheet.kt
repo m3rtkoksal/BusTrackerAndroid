@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.registration.NeonFormField
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
@@ -52,24 +53,24 @@ fun AddServiceBottomSheet(
         )
 
         Text(
-            text = "Yeni servis ekle",
+            text = L10n.addShuttleTitle,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = NeonTheme.OnSurface
         )
 
         Text(
-            text = "Sürücünün verdiği servis kodunu girin. Ekledikten sonra bu servis aktif olur.",
+            text = L10n.addShuttleBody,
             fontSize = 14.sp,
             color = NeonTheme.OnSurfaceVariant,
             textAlign = TextAlign.Center
         )
 
         NeonFormField(
-            title = "Servis kodu",
+            title = L10n.serviceCodeField,
             value = serviceCode,
             onValueChange = onServiceCodeChange,
-            placeholder = "6 haneli kod",
+            placeholder = L10n.sixDigitCode,
             errorText = errorText
         )
 
@@ -99,7 +100,7 @@ fun AddServiceBottomSheet(
                 )
             } else {
                 Text(
-                    text = "SERVİSE KATIL",
+                    text = L10n.joinShuttle,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.2.sp
@@ -109,7 +110,7 @@ fun AddServiceBottomSheet(
 
         TextButton(onClick = onDismiss) {
             Text(
-                text = "Vazgeç",
+                text = L10n.cancel,
                 color = NeonTheme.OnSurfaceVariant.copy(alpha = 0.7f)
             )
         }

@@ -13,6 +13,7 @@ import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleError
 import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.NotificationService
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,7 +37,7 @@ class RegistrationFormViewModel(
 
     init {
         configureScreen(
-            title = "Hesap Oluştur",
+            title = L10n.createAccountTitle,
             navSubtitleStyle = NavSubtitleStyle.Hidden,
             navigationBarStyle = NavigationBarStyle.NeonAuth,
             usesLargeTitle = false,
@@ -47,36 +48,36 @@ class RegistrationFormViewModel(
     }
 
     val heroTitle: String
-        get() = if (role == MemberRole.Driver) "Sürücü Kaydı" else "Yolcu Kaydı"
+        get() = if (role == MemberRole.Driver) L10n.driverRegistration else L10n.passengerRegistration
 
     val heroSubtitle: String
         get() = if (role == MemberRole.Driver) {
-            "Servisinizi oluşturun, yolcularınız sizi takip etsin."
+            L10n.driverRegistrationSubtitle
         } else {
-            "Servis kodunuzla katılın, haritadan takip edin."
+            L10n.passengerRegistrationSubtitle
         }
 
     val accent: Color
         get() = if (role == MemberRole.Driver) NeonTheme.Primary else NeonTheme.Secondary
 
     val serviceFieldTitle: String
-        get() = if (role == MemberRole.Driver) "Servis adı" else "Servis kodu"
+        get() = if (role == MemberRole.Driver) L10n.serviceNameField else L10n.serviceCodeField
 
     val serviceFieldPrompt: String
         get() = if (role == MemberRole.Driver) {
-            "Örn. Kadıköy Servisi"
+            L10n.serviceNameExample
         } else {
-            "Sürücünün verdiği 6 haneli kod"
+            L10n.serviceCodeExample
         }
 
     val namePrompt: String
-        get() = if (role == MemberRole.Driver) "Örn. Ahmet" else "Örn. Ayşe"
+        get() = if (role == MemberRole.Driver) L10n.nameExampleDriver else L10n.nameExamplePassenger
 
     val footerCaption: String
         get() = if (role == MemberRole.Driver) {
-            "Konum paylaşımı yalnızca sürücü hesabında açıktır."
+            L10n.driverLocationFooter
         } else {
-            "Yolcu hesabında konum paylaşımı yoktur."
+            L10n.passengerLocationFooter
         }
 
     val canSubmit: Boolean
@@ -93,7 +94,6 @@ class RegistrationFormViewModel(
             return if (role == MemberRole.Driver) {
                 trimmedService.isNotEmpty()
             } else {
-                // Yolcu: servis kodu girilmeden Google kayıt kapalı
                 trimmedService.length >= 4
             }
         }
@@ -120,35 +120,34 @@ class RegistrationFormViewModel(
         _serviceFieldError.value = null
     }
 
-    /** Google kayıt öncesi yerel doğrulama; hata servis alanı altında gösterilir. */
     fun validateBeforeGoogleSignIn(): Boolean {
         _serviceFieldError.value = null
         if (_name.value.trim().isEmpty()) {
-            showError("Kayıt için adınızı girin.")
+            showError(L10n.enterNameToRegister)
             return false
         }
         val trimmedService = _serviceField.value.trim()
         if (role == MemberRole.Passenger) {
             if (trimmedService.isEmpty()) {
-                _serviceFieldError.value = "Servis kodu girmedin."
+                _serviceFieldError.value = L10n.enterServiceCode
                 return false
             }
             if (trimmedService.length < 4) {
-                _serviceFieldError.value = "Servis kodu en az 4 karakter olmalı."
+                _serviceFieldError.value = L10n.serviceCodeMinLength
                 return false
             }
         } else if (trimmedService.isEmpty()) {
-            _serviceFieldError.value = "Servis adı girmedin."
+            _serviceFieldError.value = L10n.enterServiceName
             return false
         }
         return true
     }
 
     private fun serviceFieldErrorMessage(error: ShuttleError): String = when (error) {
-        is ShuttleError.GroupNotFound -> error.message ?: "Bu servis kodu bulunamadı."
-        is ShuttleError.InvalidInput -> error.message ?: "Geçersiz servis kodu."
-        is ShuttleError.AlreadyInGroup -> error.message ?: "Zaten bir servise kayıtlısınız."
-        is ShuttleError.NotAuthenticated -> error.message ?: "Giriş yapmanız gerekiyor."
+        is ShuttleError.GroupNotFound -> error.message ?: L10n.shuttleCodeNotFound
+        is ShuttleError.InvalidInput -> error.message ?: L10n.invalidShuttleCode
+        is ShuttleError.AlreadyInGroup -> error.message ?: L10n.alreadyInShuttle
+        is ShuttleError.NotAuthenticated -> error.message ?: L10n.signInRequired
     }
 
     private fun applyPassengerServiceFieldError(error: Exception): Boolean {
@@ -166,7 +165,7 @@ class RegistrationFormViewModel(
             AuthRepository.setCompletingRegistration(true)
             var accountCreated = false
             try {
-                setLoading(true, "Hesap oluşturuluyor...")
+                setLoading(true, L10n.creatingAccount)
                 val googleResult = AuthRepository.signInWithGoogle(data)
 
                 if (_name.value.trim().isEmpty() && !googleResult.displayName.isNullOrBlank()) {
@@ -197,16 +196,16 @@ class RegistrationFormViewModel(
                 accountCreated = true
                 showSuccess(
                     if (role == MemberRole.Driver) {
-                        "Servis hesabınız oluşturuldu."
+                        L10n.driverAccountCreated
                     } else {
-                        "Servise katıldınız."
+                        L10n.joinedShuttle
                     }
                 )
             } catch (_: AuthError.SignInCancelled) {
-                // Kullanıcı iptal etti.
+                // User cancelled.
             } catch (error: Exception) {
                 if (!applyPassengerServiceFieldError(error)) {
-                    showError(error.localizedMessage ?: "Hesap oluşturulamadı.")
+                    showError(error.localizedMessage ?: L10n.accountCreateFailed)
                 }
                 if (UserSessionRepository.profile.value == null) {
                     AuthRepository.signOut()

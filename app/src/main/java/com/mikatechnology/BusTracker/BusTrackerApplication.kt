@@ -7,11 +7,13 @@ import com.mikatechnology.BusTracker.BuildConfig
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.services.NotificationService
+import com.mikatechnology.BusTracker.localization.LanguageManager
 
 class BusTrackerApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         FirebaseApp.initializeApp(this)
+        LanguageManager.initialize(this)
         AuthRepository.ensureConfigured()
         NotificationService.createNotificationChannel(this)
         LocationTracker.initialize(this)

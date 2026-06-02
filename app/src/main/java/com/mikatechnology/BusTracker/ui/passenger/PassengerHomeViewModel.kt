@@ -10,6 +10,7 @@ import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -102,9 +103,9 @@ class PassengerHomeViewModel(
 
     fun requestSignOut(onConfirm: () -> Unit) {
         showConfirm(
-            title = "Çıkış Yap",
-            message = "Çıkış yapmak istediğinize emin misiniz?",
-            confirmTitle = "Çıkış Yap",
+            title = L10n.signOut,
+            message = L10n.signOutConfirmMessage,
+            confirmTitle = L10n.signOut,
             destructive = true,
             onConfirm = onConfirm
         )
@@ -112,9 +113,9 @@ class PassengerHomeViewModel(
 
     fun requestDeleteAccount(onConfirm: () -> Unit) {
         showConfirm(
-            title = "Hesabı Sil",
-            message = "Hesabınızı ve tüm verilerinizi (profil, biniş noktaları, katılım kayıtları vb.) kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
-            confirmTitle = "Hesabı Kalıcı Olarak Sil",
+            title = L10n.deleteAccount,
+            message = L10n.deleteAccountConfirmMessagePassenger,
+            confirmTitle = L10n.deleteAccountPermanently,
             destructive = true,
             onConfirm = onConfirm
         )
@@ -165,11 +166,11 @@ class PassengerHomeViewModel(
                 setLoading(false)
                 if (!shouldSignOut) return@launch
                 if (profileDeleted && authRemoved) {
-                    showSuccess("Hesabınız başarıyla silindi.")
+                    showSuccess(L10n.accountDeletedSuccess)
                 } else if (profileDeleted || authRemoved) {
-                    showSuccess("Hesabınız başarıyla silindi.")
+                    showSuccess(L10n.accountDeletedSuccess)
                 } else {
-                    showError("Hesap silinirken bir hata oluştu. Oturumunuz kapatıldı; tekrar deneyebilirsiniz.")
+                    showError(L10n.accountDeleteFailed)
                 }
             }
         }

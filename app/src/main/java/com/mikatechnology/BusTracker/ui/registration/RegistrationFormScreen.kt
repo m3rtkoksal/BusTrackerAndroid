@@ -23,6 +23,7 @@ import com.mikatechnology.BusTracker.base.BaseViewShell
 import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
+import com.mikatechnology.BusTracker.localization.L10n
 
 @Composable
 fun RegistrationFormScreen(
@@ -75,7 +76,7 @@ fun RegistrationFormScreen(
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     NeonFormField(
-                        title = "Adınız",
+                        title = L10n.yourNameField,
                         value = name,
                         onValueChange = viewModel::onNameChange,
                         placeholder = viewModel.namePrompt
@@ -95,13 +96,13 @@ fun RegistrationFormScreen(
                     )
 
                     androidx.compose.material3.Text(
-                        text = "Kayıt için Google hesabınız kullanılır; telefon numarası istenmez.",
+                        text = L10n.googleRegistrationNote,
                         style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
                         color = com.mikatechnology.BusTracker.ui.theme.NeonTheme.OnSurfaceVariant
                     )
 
                     GoogleSignInButton(
-                        text = "Google ile Kayıt Ol",
+                        text = L10n.registerWithGoogle,
                         loading = isBusy,
                         enabled = canTapGoogleSignIn,
                         onClick = {

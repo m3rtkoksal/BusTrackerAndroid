@@ -9,6 +9,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -22,6 +23,7 @@ import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
 import com.mikatechnology.BusTracker.services.LocationPermissionRole
 import com.mikatechnology.BusTracker.services.LocationTracker
+import com.mikatechnology.BusTracker.localization.LanguageManager
 import com.mikatechnology.BusTracker.ui.driver.DriverHomeView
 import com.mikatechnology.BusTracker.ui.passenger.PassengerHomeView
 import com.mikatechnology.BusTracker.ui.registration.RegistrationFlowScreen
@@ -32,6 +34,7 @@ fun AppRoot() {
     val context = LocalContext.current
     val profile by UserSessionRepository.profile.collectAsStateWithLifecycle()
     val isSessionLoaded by UserSessionRepository.isSessionLoaded.collectAsStateWithLifecycle()
+    val appLanguage by LanguageManager.language.collectAsStateWithLifecycle()
 
     var showLogin by remember { mutableStateOf(false) }
 
@@ -98,22 +101,24 @@ fun AppRoot() {
         return
     }
 
-    when (val currentProfile = profile) {
-        null -> {
-            if (showLogin) {
-                LoginScreen(
-                    onBackToRegister = { showLogin = false }
-                )
-            } else {
-                RegistrationFlowScreen(
-                    onLoginTapped = { showLogin = true }
-                )
+    key(appLanguage) {
+        when (val currentProfile = profile) {
+            null -> {
+                if (showLogin) {
+                    LoginScreen(
+                        onBackToRegister = { showLogin = false }
+                    )
+                } else {
+                    RegistrationFlowScreen(
+                        onLoginTapped = { showLogin = true }
+                    )
+                }
             }
-        }
 
-        else -> when (currentProfile.role) {
-            MemberRole.Driver -> DriverHomeView(profile = currentProfile)
-            MemberRole.Passenger -> PassengerHomeView(profile = currentProfile)
+            else -> when (currentProfile.role) {
+                MemberRole.Driver -> DriverHomeView(profile = currentProfile)
+                MemberRole.Passenger -> PassengerHomeView(profile = currentProfile)
+            }
         }
     }
 }

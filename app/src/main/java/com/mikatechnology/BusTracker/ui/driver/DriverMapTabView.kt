@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.google.android.gms.maps.model.LatLng
 import com.mikatechnology.BusTracker.data.model.DriverLocation
 import com.mikatechnology.BusTracker.data.model.MorningPickup
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.map.NeonMapOverlay
 import com.mikatechnology.BusTracker.ui.map.ShuttleMapCamera
 import com.mikatechnology.BusTracker.ui.map.ShuttleMapView
@@ -132,19 +133,19 @@ fun DriverMapTabView(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 BentoCard(
-                    title = "KAPASİTE",
+                    title = L10n.capacity,
                     value = stats.capacityOccupied.toString(),
                     suffix = "/ ${stats.total}",
                     valueColor = NeonTheme.Primary,
-                    footnote = if (stats.unknown > 0) "${stats.unknown} belirtmedi" else null,
+                    footnote = if (stats.unknown > 0) L10n.unspecifiedCount(stats.unknown) else null,
                     modifier = Modifier.weight(1f)
                 )
                 BentoCard(
-                    title = "DURAKLAR",
+                    title = L10n.stops,
                     value = morningPickups.size.toString(),
                     suffix = null,
                     valueColor = NeonTheme.OnSurface,
-                    footnote = if (isTripActive) null else "Servis bekliyor",
+                    footnote = if (isTripActive) null else L10n.shuttleWaiting,
                     showClock = !isTripActive,
                     modifier = Modifier.weight(1f)
                 )
@@ -171,7 +172,7 @@ private fun ActiveBadge() {
                 .shadow(4.dp, spotColor = NeonTheme.Secondary.copy(alpha = 0.8f))
         )
         Text(
-            text = "AKTİF",
+            text = L10n.active,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 2.sp,
@@ -203,7 +204,7 @@ private fun NextStopCard(
             modifier = Modifier.padding(12.dp)
         ) {
             Text(
-                text = "SONRAKİ DURAK",
+                text = L10n.nextStop,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
                 color = NeonTheme.OnSurfaceVariant
@@ -231,7 +232,7 @@ private fun NextStopCard(
                     }
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
-                        text = "Sabah biniş",
+                        text = L10n.morningPickup,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = NeonTheme.OnSurfaceVariant
@@ -239,14 +240,14 @@ private fun NextStopCard(
                 }
             } else {
                 Text(
-                    text = "Durak yok",
+                    text = L10n.noStop,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = NeonTheme.OnSurface,
                     modifier = Modifier.padding(top = 8.dp)
                 )
                 Text(
-                    text = "Yolcu biniş noktası bekleniyor.",
+                    text = L10n.waitingForPassengerPickup,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     color = NeonTheme.OnSurfaceVariant,

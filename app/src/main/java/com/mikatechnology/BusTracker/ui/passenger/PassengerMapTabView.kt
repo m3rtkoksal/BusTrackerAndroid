@@ -59,6 +59,7 @@ import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.services.LocationPermissionRole
 import com.mikatechnology.BusTracker.services.LocationTracker
 import com.google.maps.android.compose.MapType
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.map.NeonMapOverlay
 import com.mikatechnology.BusTracker.ui.map.ShuttleMapCamera
 import com.mikatechnology.BusTracker.ui.map.ShuttleMapView
@@ -273,7 +274,7 @@ fun PassengerMapTabView(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Haritaya dokunarak biniş noktanızı seçin.",
+                    text = L10n.tapMapToSelectPickup,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 0.5.sp,
@@ -366,7 +367,7 @@ private fun PassengerMapCompactInfo(
                     }
                     else -> {
                         Text(
-                            text = "Konum bekleniyor",
+                            text = L10n.waitingForLocation,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
                             color = NeonTheme.OnSurfaceVariant,
@@ -376,7 +377,7 @@ private fun PassengerMapCompactInfo(
                 }
             } else {
                 Text(
-                    text = "Servis pasif",
+                    text = L10n.shuttleInactive,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     color = NeonTheme.OnSurfaceVariant.copy(alpha = 0.85f),
@@ -439,7 +440,7 @@ private fun PassengerMapAttendanceInfo(
                 maxLines = 1
             )
             Text(
-                text = "DEĞİŞTİR",
+                text = L10n.change,
                 fontSize = 8.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.5.sp,
@@ -499,7 +500,7 @@ private fun SavePickupButton(
                 modifier = Modifier.size(18.dp)
             )
             Text(
-                text = "BİNİŞ NOKTAMI KAYDET",
+                text = L10n.savePickupPoint,
                 style = TextStyle(
                     color = NeonTheme.MapSaveAction,
                     fontSize = 12.sp,
