@@ -32,6 +32,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,6 +57,9 @@ import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.services.MotionActivityRole
 import com.mikatechnology.BusTracker.services.MotionActivityService
 import com.mikatechnology.BusTracker.services.PushNotificationRouter
+import com.mikatechnology.BusTracker.services.SparseModeSuggestion
+import com.mikatechnology.BusTracker.services.SparseModeSuggestionNotifier
+import kotlinx.coroutines.delay
 import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mikatechnology.BusTracker.localization.LanguageManager
@@ -105,6 +109,8 @@ fun PassengerHomeView(
     var showMyServices by remember { mutableStateOf(false) }
     var showLanguagePicker by remember { mutableStateOf(false) }
     var showHolidayModePicker by remember { mutableStateOf(false) }
+    var showSparseModeSuggestionSheet by remember { mutableStateOf(false) }
+    var sparseModeComingDays by remember { mutableIntStateOf(0) }
     val appLanguage by LanguageManager.language.collectAsStateWithLifecycle()
     val selectedTab by tabController.selectedTab.collectAsState()
     val isTripActive by ShuttleStore.shared.isTripActive.collectAsStateWithLifecycle()
@@ -120,9 +126,18 @@ fun PassengerHomeView(
     val draftCoordinate by viewModel.draftPickupCoordinate.collectAsState()
 
     val myMember = members.firstOrNull { it.id == profile.memberID }
-    val myAttendance = myMember?.effectiveAttendance() ?: AttendanceStatus.Unknown
-    val isBoardedToday = myMember?.isBoardedToday == true
     val isHolidayModeActive = myMember?.isHolidayModeActive() == true
+    val planningAttendanceDateKey = remember(isHolidayModeActive) {
+        ShuttleStore.shared.planningAttendanceDateKey(isHolidayModeActive)
+    }
+    val attendanceRevision by ShuttleStore.shared.attendanceRevision.collectAsStateWithLifecycle()
+    val myRawAttendance = remember(attendanceRevision, planningAttendanceDateKey, profile.memberID) {
+        ShuttleStore.shared.rawAttendanceFor(profile.memberID, planningAttendanceDateKey)
+    }
+    val myEffectiveAttendance = remember(attendanceRevision, planningAttendanceDateKey, profile.memberID, isHolidayModeActive) {
+        ShuttleStore.shared.effectiveAttendanceFor(profile.memberID, planningAttendanceDateKey)
+    }
+    val isBoardedToday = myMember?.isBoardedToday == true
     val holidayModeSubtitle = remember(myMember?.holidayModeEndDate, isHolidayModeActive) {
         if (isHolidayModeActive) {
             myMember?.holidayModeEndDate
@@ -141,6 +156,15 @@ fun PassengerHomeView(
                 ?: L10n.holidayModeCardDetailOff
         } else {
             L10n.holidayModeCardDetailOff
+        }
+    }
+
+    val attendanceQuestion = remember(isHolidayModeActive, planningAttendanceDateKey) {
+        if (isHolidayModeActive) {
+            val dateLabel = HolidayMode.displayDateLabel(planningAttendanceDateKey)
+            L10n.attendanceQuestionForDate("BUGÜN · $dateLabel")
+        } else {
+            L10n.attendanceTodayQuestion
         }
     }
 
@@ -169,33 +193,78 @@ fun PassengerHomeView(
         )
     }
 
+    val memberLoaded = members.any { it.id == profile.memberID }
+    val groupID = profile.primaryGroupID.ifBlank { profile.groupID }
+
     LaunchedEffect(Unit) {
         if (PushNotificationRouter.consumePendingOpenPassengerMap()) {
             tabController.select(PassengerHomeTab.Map)
         }
+        if (PushNotificationRouter.consumePendingOpenSparseModeSheet()) {
+            tabController.select(PassengerHomeTab.Service)
+            val prompt = SparseModeSuggestion.evaluate(
+                context = context,
+                groupID = groupID,
+                memberID = profile.memberID,
+                holidayModeActive = isHolidayModeActive
+            )
+            if (prompt != null) {
+                sparseModeComingDays = prompt.comingDays
+                showSparseModeSuggestionSheet = true
+            }
+        }
         PushNotificationRouter.openPassengerMap.collect {
             tabController.select(PassengerHomeTab.Map)
         }
+        PushNotificationRouter.openSparseModeSheet.collect {
+            tabController.select(PassengerHomeTab.Service)
+            val prompt = SparseModeSuggestion.evaluate(
+                context = context,
+                groupID = groupID,
+                memberID = profile.memberID,
+                holidayModeActive = isHolidayModeActive
+            )
+            if (prompt != null) {
+                sparseModeComingDays = prompt.comingDays
+                showSparseModeSuggestionSheet = true
+            }
+        }
     }
 
-    val memberLoaded = members.any { it.id == profile.memberID }
+    LaunchedEffect(memberLoaded, isHolidayModeActive, profile.memberID, groupID) {
+        if (!memberLoaded || groupID.isBlank()) return@LaunchedEffect
+        delay(1_200)
+        val prompt = SparseModeSuggestion.evaluate(
+            context = context,
+            groupID = groupID,
+            memberID = profile.memberID,
+            holidayModeActive = isHolidayModeActive
+        ) ?: return@LaunchedEffect
+        sparseModeComingDays = prompt.comingDays
+        showSparseModeSuggestionSheet = true
+        SparseModeSuggestionNotifier.postNotificationIfNeeded(
+            context = context,
+            memberID = profile.memberID,
+            prompt = prompt
+        )
+    }
     val tripAttendancePromptKey =
-        "$isTripActive-${myAttendance.name}-$memberLoaded-${members.size}"
+        "$isTripActive-${myRawAttendance.name}-$memberLoaded-${members.size}"
 
     LaunchedEffect(tripAttendancePromptKey) {
         if (isTripActive && !wasTripActive) {
-            viewModel.onTripActiveChanged(false, true, myAttendance)
+            viewModel.onTripActiveChanged(false, true, myRawAttendance)
         } else if (!isTripActive && wasTripActive) {
-            viewModel.onTripActiveChanged(true, false, myAttendance)
+            viewModel.onTripActiveChanged(true, false, myRawAttendance)
         }
         wasTripActive = isTripActive
-        viewModel.presentTripAttendanceSheetIfNeeded(isTripActive, myAttendance)
+        viewModel.presentTripAttendanceSheetIfNeeded(isTripActive, myRawAttendance)
     }
 
     DisposableEffect(lifecycleOwner, tripAttendancePromptKey) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.presentTripAttendanceSheetIfNeeded(isTripActive, myAttendance)
+                viewModel.presentTripAttendanceSheetIfNeeded(isTripActive, myRawAttendance)
                 updatePassengerMotionMonitoring(
                     context = context,
                     lifecycleOwner = lifecycleOwner,
@@ -239,7 +308,9 @@ fun PassengerHomeView(
                         PassengerServiceTab(
                             profile = profile,
                             isTripActive = isTripActive,
-                            myAttendance = myAttendance,
+                            myAttendance = myRawAttendance,
+                            myEffectiveAttendance = myEffectiveAttendance,
+                            attendanceQuestion = attendanceQuestion,
                             savedMorningPickup = savedPickup,
                             draftLatitude = draftCoordinate?.latitude,
                             draftLongitude = draftCoordinate?.longitude,
@@ -265,7 +336,7 @@ fun PassengerHomeView(
                             driverRoute = driverRoute,
                             draftCoordinate = draftCoordinate,
                             savedPickup = savedPickup,
-                            myAttendance = myAttendance,
+                            myAttendance = myEffectiveAttendance,
                             isBoardedToday = isBoardedToday,
                             onAttendanceClick = { tabController.select(PassengerHomeTab.Service) },
                             isTripActive = isTripActive,
@@ -345,6 +416,34 @@ fun PassengerHomeView(
             }
 
             AnimatedVisibility(
+                visible = showSparseModeSuggestionSheet,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(4f)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f))
+                            .clickable { showSparseModeSuggestionSheet = false }
+                    )
+                    SparseModeSuggestionSheet(
+                        comingDays = sparseModeComingDays,
+                        onConfirm = {
+                            showSparseModeSuggestionSheet = false
+                            tabController.select(PassengerHomeTab.Service)
+                            showHolidayModePicker = true
+                        },
+                        onLater = { showSparseModeSuggestionSheet = false },
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                }
+            }
+
+            AnimatedVisibility(
                 visible = showLanguagePicker,
                 enter = fadeIn() + slideInVertically { it },
                 exit = fadeOut() + slideOutVertically { it },
@@ -369,7 +468,7 @@ fun PassengerHomeView(
                 exit = fadeOut() + slideOutVertically { it },
                 modifier = Modifier
                     .fillMaxSize()
-                    .zIndex(5f)
+                    .zIndex(6f)
             ) {
                 HolidayModePickerOverlay(
                     isHolidayActive = isHolidayModeActive,

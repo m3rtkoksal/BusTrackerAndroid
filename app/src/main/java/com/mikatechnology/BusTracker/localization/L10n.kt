@@ -53,6 +53,8 @@ object L10n {
     val waitingForLocation get() = t("Konum bekleniyor", "Waiting for location")
     val shuttleInactive get() = t("Servis pasif", "Shuttle inactive")
     val attendanceTodayQuestion get() = t("BUGÜN GELECEK MİSİNİZ?", "ARE YOU COMING TODAY?")
+    fun attendanceQuestionForDate(dateLabel: String) =
+        t("$dateLabel GELECEK MİSİNİZ?", "ARE YOU COMING ON $dateLabel?")
     val pickupPoint get() = t("BİNİŞ NOKTASI", "PICKUP POINT")
     val noPickupSaved get() = t("Henüz biniş noktası kaydetmediniz.", "You haven't saved a pickup point yet.")
     val setOnMap get() = t("HARİTADA BELİRLE", "SET ON MAP")
@@ -68,22 +70,36 @@ object L10n {
     val holidayModeBadgeActive get() = t("AKTİF", "ON")
     fun holidayModeUntil(date: String) = t("$date tarihine kadar", "Until $date")
     val holidayModeCardDetailOff get() = t(
-        "Açın; seçmediğiniz günler gelmiyorum sayılır. İstediğiniz günleri geliyorum seçebilirsiniz.",
-        "Turn on to count unselected days as not coming. You can still mark individual days as coming."
+        "Seyrek kullanıyorsanız açın: her gün işaretlemeden varsayılan gelmiyorum; servise bineceğiniz günlerde Geliyorum seçin.",
+        "For occasional use: default is not coming without daily taps; mark Coming only on shuttle days."
     )
     fun holidayModeCardDetailActive(date: String) = t(
-        "$date tarihine kadar seçmediğiniz günler gelmiyorum.",
-        "Until $date, unselected days count as not coming."
+        "$date tarihine kadar seçmediğiniz her gün gelmiyorum; bineceğiniz gün Geliyorum yeterli.",
+        "Until $date, unselected days are not coming; on shuttle days, tap Coming."
     )
     val holidayModeCalendarHint get() = t(
-        "Tatilin biteceği günü seçin. Bu tarihe kadar seçmediğiniz günler \"Gelmiyorum\" sayılır; sadece \"Geliyorum\" seçtiğiniz günler sürücü haritasında görünürsünüz.",
-        "Pick the last day of your holiday. Until then, days you don't choose count as \"Not coming\"; only days you select \"Coming\" appear on the driver's map."
+        "Modun biteceği son günü seçin (ör. 3 ay). Bu sürede her gün Gelmiyorum işaretlemeniz gerekmez; servise bineceğiniz gün uygulamadan Geliyorum seçin, sürücü anında görür.",
+        "Pick when this mode ends (e.g. 3 months). Unselected days count as not coming; on days you ride, choose Coming and the driver sees it right away."
     )
     val holidayModeEndDateLabel get() = t("Bitiş tarihi", "End date")
     val holidayModeSave get() = t("Kaydet", "Save")
     val holidayModeEndEarly get() = t("Tatili bitir", "End holiday now")
     val holidayModeSaved get() = t("Tatil modu kaydedildi.", "Holiday mode saved.")
     val holidayModeEnded get() = t("Tatil modu kapatıldı.", "Holiday mode turned off.")
+    val sparseModeSuggestionTitle get() = t(
+        "Servisi az kullanıyor musunuz?",
+        "Rarely use the shuttle?"
+    )
+    fun sparseModeSuggestionBody(comingDays: Int) = t(
+        "Son 1 ayda servise yalnızca $comingDays kez \"Geliyorum\" seçtiniz. Tatil Modu ile her gün \"Gelmiyorum\" demek zorunda kalmazsınız; geleceğiniz günlerde sadece \"Geliyorum\" yeterli.",
+        "In the last month you chose \"I'm coming\" only $comingDays times. With Holiday Mode you don't need to tap \"Not coming\" every day — on days you ride, just tap \"I'm coming\"."
+    )
+    val sparseModeSheetTitle get() = t("Servisi az kullanıyorsunuz", "You rarely use the shuttle")
+    fun sparseModeSheetMessage(comingDays: Int) = t(
+        "Son 1 ayda yalnızca $comingDays kez \"Geliyorum\" seçtiniz. İsterseniz Tatil Modu açarak genel durumunuzu gelmiyorum yapabilirsiniz; servise bineceğiniz günlerde sadece \"Geliyorum\" seçmeniz yeterli.",
+        "In the last month you chose \"I'm coming\" only $comingDays times. You can turn on Holiday Mode so your default is not coming — on days you ride, just choose \"I'm coming\"."
+    )
+    val sparseModeSheetOk get() = t("Tamam", "OK")
     val signOut get() = t("Çıkış Yap", "Sign Out")
     val deleteAccount get() = t("Hesabı Sil", "Delete Account")
     val inviteLinkShare get() = t("DAVET LİNKİ PAYLAŞ", "SHARE INVITE LINK")
@@ -258,6 +274,10 @@ object L10n {
     val waitingForPassengersHint get() = t("Yolcular yukarıdaki servis kodunu kullanarak katıldığında burada görünecek.", "Passengers will appear here when they join using the shuttle code above.")
     val backgroundLocationWarning get() = t("Arka planda konum paylaşımı için \"Her zaman\" iznini açın.", "Enable \"Always\" location permission for background sharing.")
     val attendanceHint get() = t("Seçiminiz sürücüye kaydedilir. Servis bitince yeniden seçmeniz gerekir.", "Your choice is saved for the driver. You must choose again after the shuttle ends.")
+    val attendanceHolidayHint get() = t(
+        "Seçiminiz yalnızca bugün için geçerli. Mod açıkken diğer günler varsayılan gelmiyorum.",
+        "Your choice is for today only. While this mode is on, other days default to not coming."
+    )
     val tapMapToSelectPickup get() = t("Haritaya dokunarak biniş noktanızı seçin.", "Tap the map to select your pickup point.")
     val signOutConfirmMessage get() = t("Çıkış yapmak istediğinize emin misiniz?", "Are you sure you want to sign out?")
     val deleteAccountConfirmMessage get() = t("Hesabınızı ve tüm verilerinizi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.", "Are you sure you want to permanently delete your account and all data? This cannot be undone.")

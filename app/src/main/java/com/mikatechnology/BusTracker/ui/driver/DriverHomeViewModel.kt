@@ -11,7 +11,6 @@ import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.data.model.ShuttleMember
-import com.mikatechnology.BusTracker.data.model.effectiveAttendance
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
@@ -68,9 +67,9 @@ class DriverHomeViewModel(
         val passengers = members.filter { it.role == MemberRole.Passenger }
         return DriverPassengerStats(
             total = 15,
-            coming = passengers.count { it.effectiveAttendance() == AttendanceStatus.Coming },
-            notComing = passengers.count { it.effectiveAttendance() == AttendanceStatus.NotComing },
-            unknown = passengers.count { it.effectiveAttendance() == AttendanceStatus.Unknown }
+            coming = passengers.count { shuttleStore.serviceDayAttendanceFor(it) == AttendanceStatus.Coming },
+            notComing = passengers.count { shuttleStore.serviceDayAttendanceFor(it) == AttendanceStatus.NotComing },
+            unknown = passengers.count { shuttleStore.serviceDayAttendanceFor(it) == AttendanceStatus.Unknown }
         )
     }
 
@@ -82,7 +81,8 @@ class DriverHomeViewModel(
 
         return morningPickups.filter { pickup ->
             pickup.memberID in passengerIDs &&
-                passengers.find { it.id == pickup.memberID }?.effectiveAttendance() != AttendanceStatus.NotComing
+                passengers.find { it.id == pickup.memberID }
+                    ?.let { shuttleStore.serviceDayAttendanceFor(it) } != AttendanceStatus.NotComing
         }
     }
 

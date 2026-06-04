@@ -102,6 +102,7 @@ fun DriverHomeView(
     var waitingForSettingsReturn by remember { mutableStateOf(false) }
 
     val members by ShuttleStore.shared.members.collectAsStateWithLifecycle()
+    val attendanceRevision by ShuttleStore.shared.attendanceRevision.collectAsStateWithLifecycle()
     val isTripActive by ShuttleStore.shared.isTripActive.collectAsStateWithLifecycle()
     val driverLocation by ShuttleStore.shared.driverLocation.collectAsStateWithLifecycle()
     val driverRoute by ShuttleStore.shared.driverRoute.collectAsStateWithLifecycle()
@@ -113,8 +114,10 @@ fun DriverHomeView(
     val selectedTripDurationHours by viewModel.selectedTripDurationHours.collectAsStateWithLifecycle()
 
     val passengers = members.filter { it.role == MemberRole.Passenger }
-    val stats = viewModel.passengerStats(members)
-    val filteredPickups = viewModel.passengerMorningPickups(passengers, morningPickups)
+    val stats = remember(members, attendanceRevision) { viewModel.passengerStats(members) }
+    val filteredPickups = remember(passengers, morningPickups, attendanceRevision) {
+        viewModel.passengerMorningPickups(passengers, morningPickups)
+    }
     val mapDriverLocation = resolveDriverMapLocation(
         firestoreLocation = driverLocation,
         deviceLocation = deviceLocation ?: LocationTracker.effectiveLocation,

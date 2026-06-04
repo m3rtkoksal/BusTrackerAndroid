@@ -36,6 +36,14 @@ enum class AttendanceStatus(val rawValue: String) {
     fun mapTabLabel(isBoarded: Boolean): String =
         if (isBoarded) L10n.attendanceBoardedSelf else mapTabLabel
 
+    /** Yolcunun kendi ekranında “Seçiminiz” satırı. */
+    val selfChoiceLabel: String
+        get() = when (this) {
+            Coming -> L10n.attendanceComingSelf
+            NotComing -> L10n.attendanceNotComingSelf
+            Unknown -> L10n.attendanceUnknown
+        }
+
     companion object {
         fun fromRaw(value: String?): AttendanceStatus? {
             return entries.firstOrNull { it.rawValue == value }

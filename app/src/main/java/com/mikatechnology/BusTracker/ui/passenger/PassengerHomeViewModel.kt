@@ -6,11 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.mikatechnology.BusTracker.base.BaseViewModel
 import com.mikatechnology.BusTracker.base.NavigationBarStyle
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
+import com.mikatechnology.BusTracker.data.model.isHolidayModeActive
 import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.localization.L10n
+import com.mikatechnology.BusTracker.services.AttendanceUsageTracker
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -188,14 +190,25 @@ class PassengerHomeViewModel(
             _pendingAttendanceStatus.value = status
             _isUpdatingAttendance.value = true
             try {
+                val holidayActive = store.members.value
+                    .firstOrNull { it.id == profile.memberID }
+                    ?.isHolidayModeActive() == true
+                val dateKey = store.planningAttendanceDateKey(holidayActive)
                 store.setAttendance(
                     groupID = resolvedGroupID(),
                     memberID = profile.memberID,
                     name = profile.name,
+                    status = status,
+                    dateKey = dateKey
+                )
+                AttendanceUsageTracker.record(
+                    context = context,
+                    memberID = profile.memberID,
+                    dateKey = dateKey,
                     status = status
                 )
                 _showTripStartedAttendanceSheet.value = false
-                showSuccess("Seçiminiz kaydedildi: ${status.title}")
+                showSuccess("Seçiminiz kaydedildi: ${status.selfChoiceLabel}")
             } catch (e: Exception) {
                 showError(e.localizedMessage ?: "Güncellenemedi")
             } finally {
@@ -259,10 +272,21 @@ class PassengerHomeViewModel(
                     latitude = coordinate.latitude,
                     longitude = coordinate.longitude
                 )
+                val holidayActive = store.members.value
+                    .firstOrNull { it.id == profile.memberID }
+                    ?.isHolidayModeActive() == true
+                val dateKey = store.planningAttendanceDateKey(holidayActive)
                 store.setAttendance(
                     groupID = groupID,
                     memberID = profile.memberID,
                     name = profile.name,
+                    status = AttendanceStatus.Coming,
+                    dateKey = dateKey
+                )
+                AttendanceUsageTracker.record(
+                    context = context,
+                    memberID = profile.memberID,
+                    dateKey = dateKey,
                     status = AttendanceStatus.Coming
                 )
                 _showTripStartedAttendanceSheet.value = false

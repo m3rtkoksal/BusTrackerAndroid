@@ -59,6 +59,8 @@ fun PassengerServiceTab(
     profile: UserProfile,
     isTripActive: Boolean,
     myAttendance: AttendanceStatus,
+    myEffectiveAttendance: AttendanceStatus,
+    attendanceQuestion: String,
     savedMorningPickup: MorningPickup?,
     draftLatitude: Double?,
     draftLongitude: Double?,
@@ -156,7 +158,7 @@ fun PassengerServiceTab(
                 .padding(16.dp)
         ) {
             Text(
-                text = L10n.attendanceTodayQuestion,
+                text = attendanceQuestion,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 2.sp,
@@ -165,15 +167,22 @@ fun PassengerServiceTab(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            if (myAttendance != AttendanceStatus.Unknown) {
+            val showChoice = myAttendance != AttendanceStatus.Unknown ||
+                (isHolidayModeActive && myEffectiveAttendance != AttendanceStatus.Unknown)
+            val choiceStatus = if (myAttendance != AttendanceStatus.Unknown) {
+                myAttendance
+            } else {
+                myEffectiveAttendance
+            }
+            if (showChoice) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = if (myAttendance == AttendanceStatus.Coming) Icons.Default.CheckCircle else Icons.Default.Close,
+                        imageVector = if (choiceStatus == AttendanceStatus.Coming) Icons.Default.CheckCircle else Icons.Default.Close,
                         contentDescription = null,
-                        tint = if (myAttendance == AttendanceStatus.Coming) NeonTheme.Secondary else ErrorRed
+                        tint = if (choiceStatus == AttendanceStatus.Coming) NeonTheme.Secondary else ErrorRed
                     )
                     Text(
-                        text = L10n.yourChoice(myAttendance.title),
+                        text = L10n.yourChoice(choiceStatus.selfChoiceLabel),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = NeonTheme.OnSurface,
@@ -183,6 +192,12 @@ fun PassengerServiceTab(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
+            val comingSelected = myAttendance == AttendanceStatus.Coming
+            val notComingSelected = myAttendance == AttendanceStatus.NotComing ||
+                (isHolidayModeActive &&
+                    myAttendance == AttendanceStatus.Unknown &&
+                    myEffectiveAttendance == AttendanceStatus.NotComing)
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -191,8 +206,8 @@ fun PassengerServiceTab(
                     title = L10n.attendanceComingSelf.uppercase(),
                     icon = Icons.Default.CheckCircle,
                     accent = NeonTheme.Secondary,
-                    isSelected = myAttendance == AttendanceStatus.Coming,
-                    isLoading = isUpdatingAttendance && myAttendance != AttendanceStatus.Coming,
+                    isSelected = comingSelected,
+                    isLoading = isUpdatingAttendance && !comingSelected,
                     enabled = true,
                     onClick = { onAttendanceSelected(AttendanceStatus.Coming) },
                     modifier = Modifier.weight(1f)
@@ -202,8 +217,8 @@ fun PassengerServiceTab(
                     title = L10n.attendanceNotComingSelf.uppercase(),
                     icon = Icons.Default.Close,
                     accent = ErrorRed,
-                    isSelected = myAttendance == AttendanceStatus.NotComing,
-                    isLoading = isUpdatingAttendance && myAttendance != AttendanceStatus.NotComing,
+                    isSelected = notComingSelected,
+                    isLoading = isUpdatingAttendance && !notComingSelected,
                     enabled = true,
                     onClick = { onAttendanceSelected(AttendanceStatus.NotComing) },
                     modifier = Modifier.weight(1f)
@@ -211,7 +226,7 @@ fun PassengerServiceTab(
             }
 
             Text(
-                text = L10n.attendanceHint,
+                text = if (isHolidayModeActive) L10n.attendanceHolidayHint else L10n.attendanceHint,
                 fontSize = 10.sp,
                 color = NeonTheme.Outline,
                 modifier = Modifier

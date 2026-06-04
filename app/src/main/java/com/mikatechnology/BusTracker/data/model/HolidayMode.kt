@@ -6,6 +6,11 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
+/**
+ * Seyrek servis modu (UI: Tatil Modu): Bitiş tarihine kadar her takvim günü ayrı kayıt.
+ * Seçim yok → sürücüde gelmiyorum; o gün servise binecekse yolcu Geliyorum seçer (yalnızca o gün).
+ * Örn. 3 ay açık, 2 haftada 1 gün: sadece o günlerde Geliyorum yeterli.
+ */
 object HolidayMode {
     private val locale = Locale("tr", "TR")
     private val timeZone: TimeZone = TimeZone.getTimeZone("Europe/Istanbul")
@@ -45,7 +50,27 @@ object HolidayMode {
         return formatter.format(date)
     }
 
+    fun displayDateLabel(dateKey: String): String {
+        val date = dateFromKey(dateKey) ?: return dateKey
+        val formatter = SimpleDateFormat("dd.MM.yyyy", locale).apply {
+            this.timeZone = timeZone
+        }
+        return formatter.format(date)
+    }
+
     fun startOfTodayMillis(): Long = startOfDay(System.currentTimeMillis())
+
+    fun tomorrowDateKey(reference: Date = Date()): String {
+        val cal = calendar()
+        cal.time = reference
+        cal.add(Calendar.DAY_OF_YEAR, 1)
+        return dateKey(cal.time)
+    }
+
+    /** Bugünün tarih anahtarı (yolcu seçimi + sürücü listesi aynı gün belgesi). */
+    fun attendancePlanningDateKey(@Suppress("UNUSED_PARAMETER") holidayModeActive: Boolean, reference: Date = Date()): String {
+        return dateKey(reference)
+    }
 
     private fun startOfDay(timeMillis: Long): Long {
         val cal = calendar()
@@ -63,7 +88,7 @@ fun ShuttleMember.isHolidayModeActive(): Boolean {
     return HolidayMode.isActive(key)
 }
 
-/** Tatil süresince: yalnızca o gün için açıkça seçilen geliyorum geçerli; belirsiz = gelmiyorum. */
+/** Mod açıkken: bu gün için açık Geliyorum geçerli; seçim yoksa gelmiyorum (günlük kayıt). */
 fun ShuttleMember.effectiveAttendance(): AttendanceStatus {
     if (!isHolidayModeActive()) return attendance
     return when (attendance) {

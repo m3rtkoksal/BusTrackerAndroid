@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -71,6 +73,9 @@ fun HolidayModeCalendarBottomSheet(
     )
 
     val sheetShape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp)
+    val scrollState = rememberScrollState()
+    val canEndHoliday = isHolidayActive ||
+        (activeEndDateKey?.let { HolidayMode.isActive(it) } == true)
 
     Column(
         modifier = modifier
@@ -83,6 +88,7 @@ fun HolidayModeCalendarBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(scrollState)
                 .padding(horizontal = 28.dp)
                 .padding(bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -127,48 +133,26 @@ fun HolidayModeCalendarBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 8.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(HolidayAccent.copy(alpha = 0.14f))
-                    .border(1.dp, HolidayAccent.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
-                    .clickable(enabled = !isSaving) {
-                        val millis = datePickerState.selectedDateMillis ?: todayMillis
-                        onConfirm(Date(millis))
-                    }
-                    .padding(vertical = 18.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isSaving) {
-                    CircularProgressIndicator(
-                        color = HolidayAccent,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(24.dp)
-                    )
-                } else {
-                    Text(
-                        text = L10n.holidayModeSave.uppercase(),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 1.sp,
-                        color = HolidayAccent
-                    )
-                }
-            }
+            HolidaySheetNeonButton(
+                text = L10n.holidayModeSave.uppercase(),
+                accent = NeonTheme.Secondary,
+                isSaving = isSaving,
+                enabled = true,
+                onClick = {
+                    val millis = datePickerState.selectedDateMillis ?: todayMillis
+                    onConfirm(Date(millis))
+                },
+                modifier = Modifier.padding(top = 12.dp)
+            )
 
-            if (isHolidayActive) {
-                Text(
-                    text = L10n.holidayModeEndEarly,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = NeonTheme.OnSurfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !isSaving, onClick = onEndHoliday)
-                        .padding(vertical = 14.dp),
-                    textAlign = TextAlign.Center
+            if (canEndHoliday) {
+                HolidaySheetNeonButton(
+                    text = L10n.holidayModeEndEarly.uppercase(),
+                    accent = NeonTheme.Primary,
+                    isSaving = isSaving,
+                    enabled = true,
+                    onClick = onEndHoliday,
+                    modifier = Modifier.padding(top = 10.dp, bottom = 8.dp)
                 )
             }
         }
@@ -200,6 +184,44 @@ fun HolidayModePickerOverlay(
             onEndHoliday = onEndHoliday,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
+    }
+}
+
+@Composable
+private fun HolidaySheetNeonButton(
+    text: String,
+    accent: Color,
+    isSaving: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(accent.copy(alpha = 0.18f))
+            .border(2.dp, accent.copy(alpha = 0.85f), RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled && !isSaving, onClick = onClick)
+            .padding(vertical = 18.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (isSaving) {
+            CircularProgressIndicator(
+                color = accent,
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(24.dp)
+            )
+        } else {
+            Text(
+                text = text,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 1.sp,
+                color = accent,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 

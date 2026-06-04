@@ -66,6 +66,8 @@ class ShuttleStore private constructor() {
     private var locationListener: ListenerRegistration? = null
     private var routeListener: ListenerRegistration? = null
     private var attendanceListener: ListenerRegistration? = null
+    private var attendanceTomorrowListener: ListenerRegistration? = null
+    private var attendanceResponsesByDate: Map<String, Map<String, Map<String, Any>>> = emptyMap()
     private var morningPickupsListener: ListenerRegistration? = null
 
     private var latestAttendanceResponses: Map<String, Map<String, Any>> = emptyMap()
@@ -80,12 +82,11 @@ class ShuttleStore private constructor() {
     private val _plannedTripEndAt = MutableStateFlow<Date?>(null)
     val plannedTripEndAt: StateFlow<Date?> = _plannedTripEndAt.asStateFlow()
 
+    private val _attendanceRevision = MutableStateFlow(0)
+    val attendanceRevision: StateFlow<Int> = _attendanceRevision.asStateFlow()
+
     private val todayKey: String
-        get() {
-            val formatter = SimpleDateFormat("yyyy-MM-dd", Locale("tr", "TR"))
-            formatter.calendar = java.util.Calendar.getInstance()
-            return formatter.format(Date())
-        }
+        get() = HolidayMode.dateKey(Date())
 
     fun startListening(groupID: String) {
         stopListening()
@@ -124,11 +125,15 @@ class ShuttleStore private constructor() {
                 _driverRoute.value = routePointsFrom(snapshot?.data)
             }
 
-        attendanceListener = db.collection("groups").document(groupID)
-            .collection("attendance").document(todayKey)
-            .addSnapshotListener { snapshot, _ ->
-                applyAttendance(snapshot?.data)
-            }
+        fun listenAttendance(dateKey: String): ListenerRegistration {
+            return db.collection("groups").document(groupID)
+                .collection("attendance").document(dateKey)
+                .addSnapshotListener { snapshot, _ ->
+                    onAttendanceSnapshot(dateKey, snapshot?.data)
+                }
+        }
+        attendanceListener = listenAttendance(todayKey)
+        attendanceTomorrowListener = listenAttendance(HolidayMode.tomorrowDateKey())
 
         morningPickupsListener = db.collection("groups").document(groupID)
             .collection("morningPickups")
@@ -148,12 +153,15 @@ class ShuttleStore private constructor() {
         locationListener?.remove()
         routeListener?.remove()
         attendanceListener?.remove()
+        attendanceTomorrowListener?.remove()
         morningPickupsListener?.remove()
         membersListener = null
         locationListener = null
         routeListener = null
         attendanceListener = null
+        attendanceTomorrowListener = null
         morningPickupsListener = null
+        attendanceResponsesByDate = emptyMap()
         _morningPickups.value = emptyList()
         _driverRoute.value = emptyList()
         lastAppendedRoutePoint = null
@@ -476,22 +484,34 @@ class ShuttleStore private constructor() {
                 boardedAt = boardedByID[member.id] ?: member.boardedAt
             )
         }
-        applyAttendance(mapOf("responses" to latestAttendanceResponses))
+        refreshMembersAttendanceForServiceDay()
     }
 
-    private fun applyAttendance(data: Map<String, Any>?) {
+    private fun onAttendanceSnapshot(dateKey: String, data: Map<String, Any>?) {
+        val updated = attendanceResponsesByDate.toMutableMap()
         if (data == null) {
-            latestAttendanceResponses = emptyMap()
+            updated.remove(dateKey)
+        } else {
+            val parsed = parseAttendanceResponses(data)
+            if (parsed.isNotEmpty()) {
+                updated[dateKey] = parsed
+            }
+        }
+        attendanceResponsesByDate = updated
+        refreshMembersAttendanceForServiceDay()
+        notifyAttendanceChanged()
+    }
+
+    private fun notifyAttendanceChanged() {
+        _attendanceRevision.value += 1
+    }
+
+    private fun refreshMembersAttendanceForServiceDay() {
+        latestAttendanceResponses = attendanceResponsesByDate[todayKey] ?: emptyMap()
+        if (latestAttendanceResponses.isEmpty() && attendanceResponsesByDate.isEmpty()) {
             resetPassengerAttendance()
             return
         }
-
-        val parsed = parseAttendanceResponses(data)
-        if (parsed.isNotEmpty()) {
-            latestAttendanceResponses = parsed
-        }
-
-        if (latestAttendanceResponses.isEmpty()) return
 
         _members.value = _members.value.map { member ->
             if (member.role != MemberRole.Passenger) return@map member
@@ -500,6 +520,26 @@ class ShuttleStore private constructor() {
             val boardedAt = (response?.get("boardedAt") as? Timestamp)?.toDate()
             member.copy(attendance = status, boardedAt = boardedAt)
         }
+    }
+
+    fun planningAttendanceDateKey(holidayModeActive: Boolean): String =
+        HolidayMode.attendancePlanningDateKey(holidayModeActive)
+
+    fun rawAttendanceFor(memberID: String, dateKey: String): AttendanceStatus {
+        val response = attendanceResponsesByDate[dateKey]?.get(memberID)
+        return response?.let { attendanceStatusFrom(it) } ?: AttendanceStatus.Unknown
+    }
+
+    fun effectiveAttendanceFor(memberID: String, dateKey: String): AttendanceStatus {
+        val member = _members.value.firstOrNull { it.id == memberID } ?: return AttendanceStatus.Unknown
+        val raw = rawAttendanceFor(memberID, dateKey)
+        return member.copy(attendance = raw).effectiveAttendance()
+    }
+
+    /** Sürücü: bugünün attendance belgesi (yolcuyla aynı anahtar) + tatil kuralı. */
+    fun serviceDayAttendanceFor(member: ShuttleMember): AttendanceStatus {
+        val raw = rawAttendanceFor(member.id, todayKey)
+        return member.copy(attendance = raw).effectiveAttendance()
     }
 
     private fun resetPassengerAttendance() {
@@ -570,7 +610,7 @@ class ShuttleStore private constructor() {
             if (pickupReachLoggedMemberIDs.contains(pickup.memberID)) continue
 
             val member = _members.value.firstOrNull { it.id == pickup.memberID }
-            if (member?.effectiveAttendance() == AttendanceStatus.NotComing) continue
+            if (member != null && serviceDayAttendanceFor(member) == AttendanceStatus.NotComing) continue
 
             val pickupLocation = Location("").apply {
                 latitude = pickup.latitude
@@ -711,6 +751,7 @@ class ShuttleStore private constructor() {
         _members.value = _members.value.map { member ->
             if (member.id == memberID) member.copy(holidayModeEndDate = endKey) else member
         }
+        clearMemberAttendanceStatus(groupID, memberID)
     }
 
     suspend fun clearHolidayMode(groupID: String, memberID: String) {
@@ -732,6 +773,45 @@ class ShuttleStore private constructor() {
         _members.value = _members.value.map { member ->
             if (member.id == memberID) member.copy(holidayModeEndDate = null) else member
         }
+        clearMemberAttendanceStatus(groupID, memberID)
+    }
+
+    private suspend fun clearMemberAttendanceStatus(groupID: String, memberID: String) {
+        val dateKeys = listOf(todayKey, HolidayMode.tomorrowDateKey())
+        for (dateKey in dateKeys) {
+            val ref = db.collection("groups").document(groupID)
+                .collection("attendance").document(dateKey)
+            try {
+                ref.update(
+                    FieldPath.of("responses", memberID, "status"),
+                    FieldValue.delete(),
+                    FieldPath.of("responses", memberID, "updatedAt"),
+                    FieldValue.delete()
+                ).await()
+            } catch (_: Exception) {
+                // Belge veya alan yoksa yoksay
+            }
+
+            val updated = attendanceResponsesByDate.toMutableMap()
+            val dayMap = (updated[dateKey] ?: emptyMap()).toMutableMap()
+            val memberResp = (dayMap[memberID] ?: emptyMap()).toMutableMap()
+            memberResp.remove("status")
+            memberResp.remove("updatedAt")
+            if (memberResp.isEmpty()) {
+                dayMap.remove(memberID)
+            } else {
+                dayMap[memberID] = memberResp
+            }
+            if (dayMap.isEmpty()) {
+                updated.remove(dateKey)
+            } else {
+                updated[dateKey] = dayMap
+            }
+            attendanceResponsesByDate = updated
+        }
+        latestAttendanceResponses = attendanceResponsesByDate[todayKey] ?: emptyMap()
+        refreshMembersAttendanceForServiceDay()
+        notifyAttendanceChanged()
     }
 
     // MARK: - Passenger actions (ported from iOS)
@@ -744,7 +824,8 @@ class ShuttleStore private constructor() {
         groupID: String,
         memberID: String,
         name: String,
-        status: AttendanceStatus
+        status: AttendanceStatus,
+        dateKey: String = todayKey
     ) {
         require(groupID.isNotBlank()) { "Servis bulunamadı. Çıkış yapıp tekrar katılın." }
         if (FirebaseAuth.getInstance().currentUser == null) {
@@ -752,7 +833,7 @@ class ShuttleStore private constructor() {
         }
 
         val ref = db.collection("groups").document(groupID)
-            .collection("attendance").document(todayKey)
+            .collection("attendance").document(dateKey)
 
         // Ensure parent doc exists
         ref.set(
@@ -770,13 +851,18 @@ class ShuttleStore private constructor() {
             FieldValue.serverTimestamp()
         ).await()
 
-        // Optimistic local update so UI reacts immediately
-        val existing = latestAttendanceResponses[memberID]?.toMutableMap() ?: mutableMapOf()
+        // Optimistic local update — ilgili günün belgesi (tatilde yarın ayrı)
+        val existing = (attendanceResponsesByDate[dateKey]?.get(memberID) ?: emptyMap()).toMutableMap()
         existing["status"] = status.rawValue
         existing["name"] = name
-        latestAttendanceResponses = latestAttendanceResponses + (memberID to existing)
-
-        applyAttendance(mapOf("responses" to latestAttendanceResponses))
+        val dateResponses = (attendanceResponsesByDate[dateKey] ?: emptyMap()).toMutableMap()
+        dateResponses[memberID] = existing
+        attendanceResponsesByDate = attendanceResponsesByDate + (dateKey to dateResponses)
+        if (dateKey == todayKey) {
+            latestAttendanceResponses = dateResponses
+        }
+        refreshMembersAttendanceForServiceDay()
+        notifyAttendanceChanged()
         // Gelmiyorum: biniş noktası Firestore'da kalır; sürücü haritasında attendance ile gizlenir.
         // Geliyorum tekrar seçilince aynı pin sürücüde yeniden görünür.
     }
