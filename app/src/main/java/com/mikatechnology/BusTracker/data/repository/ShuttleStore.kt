@@ -12,6 +12,7 @@ import kotlinx.coroutines.delay
 import com.google.firebase.firestore.ListenerRegistration
 import com.mikatechnology.BusTracker.BuildConfig
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
+import com.mikatechnology.BusTracker.data.model.effectiveAttendance
 import com.mikatechnology.BusTracker.data.model.HolidayMode
 import com.mikatechnology.BusTracker.data.model.DriverLocation
 import com.mikatechnology.BusTracker.data.model.MapDefaults
@@ -19,7 +20,10 @@ import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.data.model.ShuttleMember
+import com.mikatechnology.BusTracker.data.model.TripTelemetry
 import com.mikatechnology.BusTracker.services.LocationTracker
+import com.mikatechnology.BusTracker.services.MotionActivityRole
+import com.mikatechnology.BusTracker.services.MotionActivitySegment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -69,7 +73,9 @@ class ShuttleStore private constructor() {
     private var activeTripDriverName: String? = null
     private var lastLocationUploadAt: Date? = null
     private var lastAppendedRoutePoint: LatLng? = null
+    private var lastDriverTelemetryLocation: Location? = null
     private var tripAutoStopJob: Job? = null
+    private var pickupReachLoggedMemberIDs: MutableSet<String> = mutableSetOf()
 
     private val _plannedTripEndAt = MutableStateFlow<Date?>(null)
     val plannedTripEndAt: StateFlow<Date?> = _plannedTripEndAt.asStateFlow()
@@ -202,6 +208,10 @@ class ShuttleStore private constructor() {
             .await()
 
         resetDriverRoute(groupID)
+        resetTripActivity(groupID)
+        resetTripTelemetry(groupID)
+        pickupReachLoggedMemberIDs = mutableSetOf()
+        lastDriverTelemetryLocation = null
 
         _isTripActive.value = true
         _currentActiveTripGroupID.value = groupID
@@ -220,6 +230,8 @@ class ShuttleStore private constructor() {
         LocationTracker.effectiveLocation?.let { location ->
             runCatching {
                 uploadLocation(groupID, driverName, location, isActive = true)
+                recordPickupReachIfNeeded(groupID, location.latitude, location.longitude)
+                appendDriverTelemetrySample(groupID, location)
             }
             lastLocationUploadAt = Date()
         }
@@ -318,6 +330,8 @@ class ShuttleStore private constructor() {
 
         try {
             uploadLocation(groupID, driverName, location, isActive = true)
+            recordPickupReachIfNeeded(groupID, location.latitude, location.longitude)
+            appendDriverTelemetrySample(groupID, location)
             lastLocationUploadAt = now
         } catch (error: Exception) {
             _errorMessage.value = error.localizedMessage
@@ -330,11 +344,13 @@ class ShuttleStore private constructor() {
         location: Location,
         isActive: Boolean
     ) {
+        val speedMps = TripTelemetry.speedMps(location, lastDriverTelemetryLocation)
         db.collection("groups").document(groupID).collection("live").document("current")
             .set(
                 mapOf(
                     "latitude" to location.latitude,
                     "longitude" to location.longitude,
+                    "speedMps" to speedMps,
                     "isActive" to isActive,
                     "driverName" to driverName,
                     "tripDate" to todayKey,
@@ -346,6 +362,53 @@ class ShuttleStore private constructor() {
 
         if (isActive) {
             appendRoutePoint(groupID, LatLng(location.latitude, location.longitude))
+        }
+    }
+
+    private suspend fun appendDriverTelemetrySample(groupID: String, location: Location) {
+        val speedMps = TripTelemetry.speedMps(location, lastDriverTelemetryLocation)
+        lastDriverTelemetryLocation = location
+        val sample = TripTelemetry.Sample(
+            speedMps = speedMps,
+            latitude = location.latitude,
+            longitude = location.longitude,
+            sampledAt = Date(location.time)
+        )
+        writeTelemetrySamples(groupID, "driver", sample)
+    }
+
+    private suspend fun writeTelemetrySamples(
+        groupID: String,
+        documentID: String,
+        newSample: TripTelemetry.Sample
+    ) {
+        val ref = db.collection("groups").document(groupID)
+            .collection("tripTelemetry").document(documentID)
+
+        val snapshot = ref.get().await()
+        var samples = TripTelemetry.samplesFrom(snapshot.data)
+        samples = (samples + newSample)
+            .filter { it.sampledAt.time >= System.currentTimeMillis() - TripTelemetry.SAMPLE_WINDOW_MS }
+            .takeLast(TripTelemetry.MAX_STORED_SAMPLES)
+
+        val encoded = samples.map { TripTelemetry.firestorePayload(it) }
+        ref.set(
+            mapOf(
+                "tripDate" to todayKey,
+                "samples" to encoded,
+                "updatedAt" to FieldValue.serverTimestamp()
+            ),
+            com.google.firebase.firestore.SetOptions.merge()
+        ).await()
+    }
+
+    private suspend fun resetTripTelemetry(groupID: String) {
+        val snapshot = db.collection("groups").document(groupID)
+            .collection("tripTelemetry")
+            .get()
+            .await()
+        for (document in snapshot.documents) {
+            document.reference.delete().await()
         }
     }
 
@@ -406,8 +469,12 @@ class ShuttleStore private constructor() {
 
     private fun mergeMembers(fetched: List<ShuttleMember>) {
         val attendanceByID = _members.value.associate { it.id to it.attendance }
+        val boardedByID = _members.value.associate { it.id to it.boardedAt }
         _members.value = fetched.map { member ->
-            member.copy(attendance = attendanceByID[member.id] ?: member.attendance)
+            member.copy(
+                attendance = attendanceByID[member.id] ?: member.attendance,
+                boardedAt = boardedByID[member.id] ?: member.boardedAt
+            )
         }
         applyAttendance(mapOf("responses" to latestAttendanceResponses))
     }
@@ -430,17 +497,111 @@ class ShuttleStore private constructor() {
             if (member.role != MemberRole.Passenger) return@map member
             val response = latestAttendanceResponses[member.id]
             val status = response?.let { attendanceStatusFrom(it) } ?: AttendanceStatus.Unknown
-            member.copy(attendance = status)
+            val boardedAt = (response?.get("boardedAt") as? Timestamp)?.toDate()
+            member.copy(attendance = status, boardedAt = boardedAt)
         }
     }
 
     private fun resetPassengerAttendance() {
         _members.value = _members.value.map { member ->
             if (member.role == MemberRole.Passenger) {
-                member.copy(attendance = AttendanceStatus.Unknown)
+                member.copy(attendance = AttendanceStatus.Unknown, boardedAt = null)
             } else {
                 member
             }
+        }
+    }
+
+    fun boardedAt(forMemberID: String): Date? {
+        return (latestAttendanceResponses[forMemberID]?.get("boardedAt") as? Timestamp)?.toDate()
+    }
+
+    suspend fun uploadMotionActivitySnapshot(
+        groupID: String,
+        role: MotionActivityRole,
+        memberID: String,
+        automotiveSecondsInWindow: Int,
+        segments: List<MotionActivitySegment>
+    ) {
+        if (FirebaseAuth.getInstance().currentUser == null) return
+
+        val documentID = when (role) {
+            MotionActivityRole.Driver -> "activity_driver"
+            MotionActivityRole.Passenger -> "activity_passenger_$memberID"
+        }
+
+        val encodedSegments = segments.map { segment ->
+            mapOf(
+                "startedAt" to Timestamp(segment.startedAt),
+                "endedAt" to Timestamp(segment.endedAt),
+                "isAutomotive" to segment.isAutomotive
+            )
+        }
+
+        db.collection("groups").document(groupID)
+            .collection("tripActivity").document(documentID)
+            .set(
+                mapOf(
+                    "tripDate" to todayKey,
+                    "role" to role.rawValue,
+                    "memberID" to memberID,
+                    "automotiveSecondsInWindow" to automotiveSecondsInWindow,
+                    "segments" to encodedSegments,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            .await()
+    }
+
+    private suspend fun recordPickupReachIfNeeded(
+        groupID: String,
+        driverLatitude: Double,
+        driverLongitude: Double
+    ) {
+        if (!_isTripActive.value) return
+
+        val driverLocation = Location("").apply {
+            latitude = driverLatitude
+            longitude = driverLongitude
+        }
+
+        for (pickup in _morningPickups.value) {
+            if (pickupReachLoggedMemberIDs.contains(pickup.memberID)) continue
+
+            val member = _members.value.firstOrNull { it.id == pickup.memberID }
+            if (member?.effectiveAttendance() == AttendanceStatus.NotComing) continue
+
+            val pickupLocation = Location("").apply {
+                latitude = pickup.latitude
+                longitude = pickup.longitude
+            }
+            if (driverLocation.distanceTo(pickupLocation) > PICKUP_REACH_RADIUS_METERS) continue
+
+            pickupReachLoggedMemberIDs.add(pickup.memberID)
+            db.collection("groups").document(groupID)
+                .collection("tripActivity").document("pickupReach_${pickup.memberID}")
+                .set(
+                    mapOf(
+                        "tripDate" to todayKey,
+                        "memberID" to pickup.memberID,
+                        "latitude" to pickup.latitude,
+                        "longitude" to pickup.longitude,
+                        "reachedAt" to FieldValue.serverTimestamp()
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
+                )
+                .await()
+        }
+    }
+
+    private suspend fun resetTripActivity(groupID: String) {
+        val snapshot = db.collection("groups").document(groupID)
+            .collection("tripActivity")
+            .get()
+            .await()
+        for (document in snapshot.documents) {
+            document.reference.delete().await()
         }
     }
 
@@ -694,6 +855,7 @@ class ShuttleStore private constructor() {
 
     companion object {
         private const val MIN_ROUTE_POINT_DISTANCE_METERS = 20f
+        private const val PICKUP_REACH_RADIUS_METERS = 120f
         val shared = ShuttleStore()
     }
 }

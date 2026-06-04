@@ -15,7 +15,7 @@ class BusTrackerApplication : Application() {
         FirebaseApp.initializeApp(this)
         LanguageManager.initialize(this)
         AuthRepository.ensureConfigured()
-        NotificationService.createNotificationChannel(this)
+        NotificationService.createNotificationChannels(this)
         LocationTracker.initialize(this)
         if (BuildConfig.MAPS_API_KEY.isNotBlank()) {
             MapsInitializer.initialize(applicationContext, MapsInitializer.Renderer.LATEST) {}

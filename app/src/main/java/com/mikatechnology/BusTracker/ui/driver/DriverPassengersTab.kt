@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
@@ -44,6 +45,7 @@ import com.mikatechnology.BusTracker.data.model.effectiveAttendance
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.services.LocationAuthStatus
 import com.mikatechnology.BusTracker.services.LocationPermissionRole
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 import com.mikatechnology.BusTracker.util.openAppSettings
 
@@ -448,7 +450,10 @@ private fun PassengerListSection(passengers: List<ShuttleMember>) {
 @Composable
 private fun PassengerRow(member: ShuttleMember) {
     val effective = member.effectiveAttendance()
-    val color = attendanceColor(effective)
+    val isBoarded = member.isBoardedToday
+    val color = if (isBoarded) NeonTheme.Secondary else attendanceColor(effective)
+    val icon = if (isBoarded) Icons.Default.DirectionsBus else effective.icon
+    val subtitle = if (isBoarded) L10n.attendanceBoarded else effective.title
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -457,7 +462,7 @@ private fun PassengerRow(member: ShuttleMember) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = effective.icon,
+            imageVector = icon,
             contentDescription = null,
             tint = color,
             modifier = Modifier.size(24.dp)
@@ -470,7 +475,7 @@ private fun PassengerRow(member: ShuttleMember) {
                 color = NeonTheme.OnSurface
             )
             Text(
-                text = effective.title,
+                text = subtitle,
                 fontSize = 12.sp,
                 color = NeonTheme.OnSurfaceVariant
             )

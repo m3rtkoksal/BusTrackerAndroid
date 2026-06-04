@@ -1,6 +1,8 @@
 package com.mikatechnology.BusTracker.ui.passenger
 
+import android.Manifest
 import android.app.Activity
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -51,6 +53,9 @@ import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.model.effectiveAttendance
 import com.mikatechnology.BusTracker.data.model.isHolidayModeActive
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
+import com.mikatechnology.BusTracker.services.MotionActivityRole
+import com.mikatechnology.BusTracker.services.MotionActivityService
+import com.mikatechnology.BusTracker.services.PushNotificationRouter
 import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mikatechnology.BusTracker.localization.LanguageManager
@@ -71,11 +76,30 @@ fun PassengerHomeView(
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     val googleDeleteAccountLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         viewModel.deleteAccount(context, result.data)
+    }
+
+    val activityRecognitionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        MotionActivityService.refreshAuthorization(context)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
+            profile.primaryGroupID.isNotBlank() &&
+            profile.memberID.isNotBlank()
+        ) {
+            MotionActivityService.updateMonitoring(
+                context = context,
+                isEnabled = true,
+                role = MotionActivityRole.Passenger,
+                groupID = profile.primaryGroupID,
+                memberID = profile.memberID
+            )
+        }
     }
 
     var showMyServices by remember { mutableStateOf(false) }
@@ -97,6 +121,7 @@ fun PassengerHomeView(
 
     val myMember = members.firstOrNull { it.id == profile.memberID }
     val myAttendance = myMember?.effectiveAttendance() ?: AttendanceStatus.Unknown
+    val isBoardedToday = myMember?.isBoardedToday == true
     val isHolidayModeActive = myMember?.isHolidayModeActive() == true
     val holidayModeSubtitle = remember(myMember?.holidayModeEndDate, isHolidayModeActive) {
         if (isHolidayModeActive) {
@@ -126,7 +151,31 @@ fun PassengerHomeView(
     var wasTripActive by remember { mutableStateOf(isTripActive) }
 
     LaunchedEffect(profile.primaryGroupID) {
+        MotionActivityService.initialize(context)
         viewModel.onAppear(profile.primaryGroupID)
+    }
+
+    LaunchedEffect(profile.primaryGroupID, profile.memberID) {
+        updatePassengerMotionMonitoring(
+            context = context,
+            lifecycleOwner = lifecycleOwner,
+            groupID = profile.primaryGroupID,
+            memberID = profile.memberID,
+            requestPermission = { permission ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    activityRecognitionLauncher.launch(permission)
+                }
+            }
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        if (PushNotificationRouter.consumePendingOpenPassengerMap()) {
+            tabController.select(PassengerHomeTab.Map)
+        }
+        PushNotificationRouter.openPassengerMap.collect {
+            tabController.select(PassengerHomeTab.Map)
+        }
     }
 
     val memberLoaded = members.any { it.id == profile.memberID }
@@ -143,15 +192,31 @@ fun PassengerHomeView(
         viewModel.presentTripAttendanceSheetIfNeeded(isTripActive, myAttendance)
     }
 
-    val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, tripAttendancePromptKey) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.presentTripAttendanceSheetIfNeeded(isTripActive, myAttendance)
+                updatePassengerMotionMonitoring(
+                    context = context,
+                    lifecycleOwner = lifecycleOwner,
+                    groupID = profile.primaryGroupID,
+                    memberID = profile.memberID,
+                    requestPermission = { permission ->
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            activityRecognitionLauncher.launch(permission)
+                        }
+                    }
+                )
+            }
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                MotionActivityService.stopMonitoring()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            MotionActivityService.stopMonitoring()
+        }
     }
 
     BaseViewShell(viewModel = viewModel, modifier = modifier) {
@@ -201,6 +266,7 @@ fun PassengerHomeView(
                             draftCoordinate = draftCoordinate,
                             savedPickup = savedPickup,
                             myAttendance = myAttendance,
+                            isBoardedToday = isBoardedToday,
                             onAttendanceClick = { tabController.select(PassengerHomeTab.Service) },
                             isTripActive = isTripActive,
                             isSaving = isSavingPickup,
@@ -324,6 +390,33 @@ fun PassengerHomeView(
             }
         }
     }
+}
+
+private fun updatePassengerMotionMonitoring(
+    context: android.content.Context,
+    lifecycleOwner: androidx.lifecycle.LifecycleOwner,
+    groupID: String,
+    memberID: String,
+    requestPermission: (String) -> Unit
+) {
+    val isForeground = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+    if (!isForeground || groupID.isBlank() || memberID.isBlank()) {
+        MotionActivityService.stopMonitoring()
+        return
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+        !MotionActivityService.hasActivityRecognitionPermission(context)
+    ) {
+        requestPermission(Manifest.permission.ACTIVITY_RECOGNITION)
+        return
+    }
+    MotionActivityService.updateMonitoring(
+        context = context,
+        isEnabled = true,
+        role = MotionActivityRole.Passenger,
+        groupID = groupID,
+        memberID = memberID
+    )
 }
 
 @Composable

@@ -84,6 +84,7 @@ fun PassengerMapTabView(
     draftCoordinate: LatLng?,
     savedPickup: MorningPickup?,
     myAttendance: AttendanceStatus,
+    isBoardedToday: Boolean = false,
     onAttendanceClick: () -> Unit,
     isTripActive: Boolean,
     isSaving: Boolean,
@@ -224,6 +225,7 @@ fun PassengerMapTabView(
                     )
                     PassengerMapAttendanceInfo(
                         attendance = myAttendance,
+                        isBoardedToday = isBoardedToday,
                         onClick = onAttendanceClick
                     )
                 }
@@ -391,10 +393,13 @@ private fun PassengerMapCompactInfo(
 @Composable
 private fun PassengerMapAttendanceInfo(
     attendance: AttendanceStatus,
+    isBoardedToday: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val accent = attendanceMapAccent(attendance)
+    val accent = if (isBoardedToday) NeonTheme.Secondary else attendanceMapAccent(attendance)
+    val label = attendance.mapTabLabel(isBoardedToday)
+    val icon = if (isBoardedToday) Icons.Default.DirectionsBus else attendance.icon
 
     Row(
         modifier = modifier
@@ -427,13 +432,13 @@ private fun PassengerMapAttendanceInfo(
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Icon(
-                imageVector = attendance.icon,
+                imageVector = icon,
                 contentDescription = null,
                 tint = accent,
                 modifier = Modifier.size(13.dp)
             )
             Text(
-                text = attendance.mapTabLabel.uppercase(),
+                text = label.uppercase(),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 color = accent,

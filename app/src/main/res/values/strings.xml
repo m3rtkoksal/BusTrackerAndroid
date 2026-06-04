@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Shuttle Live</string>
+    <string name="motion_permission_rationale">Servise bindiğinizi otomatik anlamak için hareket veriniz kullanılır; sürekli konum paylaşımı gerekmez.</string>
     <string name="default_web_client_id">851737532018-crjnv0vcpacu575cj8cvm0v0sv7trp2b.apps.googleusercontent.com</string>
 </resources>

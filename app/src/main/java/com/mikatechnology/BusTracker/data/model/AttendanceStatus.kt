@@ -33,6 +33,9 @@ enum class AttendanceStatus(val rawValue: String) {
             Unknown -> L10n.attendanceUncertain
         }
 
+    fun mapTabLabel(isBoarded: Boolean): String =
+        if (isBoarded) L10n.attendanceBoardedSelf else mapTabLabel
+
     companion object {
         fun fromRaw(value: String?): AttendanceStatus? {
             return entries.firstOrNull { it.rawValue == value }

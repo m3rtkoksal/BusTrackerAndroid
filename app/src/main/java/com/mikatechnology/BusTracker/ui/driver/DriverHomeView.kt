@@ -3,6 +3,7 @@ package com.mikatechnology.BusTracker.ui.driver
 import android.Manifest
 import android.app.Activity
 import android.os.Build
+import androidx.compose.runtime.DisposableEffect
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -59,6 +60,8 @@ import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.services.LocationAuthStatus
 import com.mikatechnology.BusTracker.services.LocationPermissionRole
 import com.mikatechnology.BusTracker.services.LocationTracker
+import com.mikatechnology.BusTracker.services.MotionActivityRole
+import com.mikatechnology.BusTracker.services.MotionActivityService
 import com.mikatechnology.BusTracker.localization.LanguageManager
 import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.map.resolveDriverMapLocation
@@ -128,6 +131,21 @@ fun DriverHomeView(
         }
     }
 
+    val activityRecognitionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        MotionActivityService.refreshAuthorization(context)
+        if (isTripActive && profile.primaryGroupID.isNotBlank() && profile.memberID.isNotBlank()) {
+            MotionActivityService.updateMonitoring(
+                context = context,
+                isEnabled = true,
+                role = MotionActivityRole.Driver,
+                groupID = profile.primaryGroupID,
+                memberID = profile.memberID
+            )
+        }
+    }
+
     val backgroundPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -193,11 +211,30 @@ fun DriverHomeView(
 
     LaunchedEffect(profile.groupID) {
         LocationTracker.initialize(context)
+        MotionActivityService.initialize(context)
         viewModel.onAppear(profile.groupID)
         if (LocationTracker.hasFineLocation(context)) {
             LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
             LocationTracker.requestSingleLocation(context)
         }
+    }
+
+    LaunchedEffect(isTripActive, profile.primaryGroupID, profile.memberID) {
+        updateDriverMotionMonitoring(
+            context = context,
+            isTripActive = isTripActive,
+            groupID = profile.primaryGroupID,
+            memberID = profile.memberID,
+            requestPermission = { permission ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    activityRecognitionLauncher.launch(permission)
+                }
+            }
+        )
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { MotionActivityService.stopMonitoring() }
     }
 
     BaseViewShell(viewModel = viewModel, modifier = modifier) {
@@ -369,6 +406,32 @@ fun DriverHomeView(
             }
         }
     }
+}
+
+private fun updateDriverMotionMonitoring(
+    context: android.content.Context,
+    isTripActive: Boolean,
+    groupID: String,
+    memberID: String,
+    requestPermission: (String) -> Unit
+) {
+    if (!isTripActive || groupID.isBlank() || memberID.isBlank()) {
+        MotionActivityService.stopMonitoring()
+        return
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+        !MotionActivityService.hasActivityRecognitionPermission(context)
+    ) {
+        requestPermission(Manifest.permission.ACTIVITY_RECOGNITION)
+        return
+    }
+    MotionActivityService.updateMonitoring(
+        context = context,
+        isEnabled = true,
+        role = MotionActivityRole.Driver,
+        groupID = groupID,
+        memberID = memberID
+    )
 }
 
 @Composable
