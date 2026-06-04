@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.ShuttleMember
+import com.mikatechnology.BusTracker.data.model.effectiveAttendance
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.services.LocationAuthStatus
 import com.mikatechnology.BusTracker.services.LocationPermissionRole
@@ -446,7 +447,8 @@ private fun PassengerListSection(passengers: List<ShuttleMember>) {
 
 @Composable
 private fun PassengerRow(member: ShuttleMember) {
-    val color = attendanceColor(member.attendance)
+    val effective = member.effectiveAttendance()
+    val color = attendanceColor(effective)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -455,7 +457,7 @@ private fun PassengerRow(member: ShuttleMember) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = member.attendance.icon,
+            imageVector = effective.icon,
             contentDescription = null,
             tint = color,
             modifier = Modifier.size(24.dp)
@@ -468,7 +470,7 @@ private fun PassengerRow(member: ShuttleMember) {
                 color = NeonTheme.OnSurface
             )
             Text(
-                text = member.attendance.title,
+                text = effective.title,
                 fontSize = 12.sp,
                 color = NeonTheme.OnSurfaceVariant
             )

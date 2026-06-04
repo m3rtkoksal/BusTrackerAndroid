@@ -63,7 +63,11 @@ fun PassengerServiceTab(
     draftLatitude: Double?,
     draftLongitude: Double?,
     isUpdatingAttendance: Boolean,
+    isHolidayModeActive: Boolean,
+    holidayModeSubtitle: String,
+    holidayModeDetailLine: String,
     onAttendanceSelected: (AttendanceStatus) -> Unit,
+    onOpenHolidayModePicker: () -> Unit,
     onOpenMap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -216,6 +220,13 @@ fun PassengerServiceTab(
                 textAlign = TextAlign.Center
             )
         }
+
+        HolidayModeServiceCard(
+            isActive = isHolidayModeActive,
+            subtitle = holidayModeSubtitle,
+            detailLine = holidayModeDetailLine,
+            onClick = onOpenHolidayModePicker
+        )
 
         Column(
             modifier = Modifier

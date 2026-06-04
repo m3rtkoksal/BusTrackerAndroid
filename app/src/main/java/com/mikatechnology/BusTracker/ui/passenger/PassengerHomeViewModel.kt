@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.Date
 
 class PassengerHomeViewModel(
     private val profile: UserProfile
@@ -36,6 +37,9 @@ class PassengerHomeViewModel(
 
     private val _isSavingPickup = MutableStateFlow(false)
     val isSavingPickup: StateFlow<Boolean> = _isSavingPickup.asStateFlow()
+
+    private val _isSavingHolidayMode = MutableStateFlow(false)
+    val isSavingHolidayMode: StateFlow<Boolean> = _isSavingHolidayMode.asStateFlow()
 
     private val _draftPickupCoordinate = MutableStateFlow<com.google.android.gms.maps.model.LatLng?>(null)
     val draftPickupCoordinate: StateFlow<com.google.android.gms.maps.model.LatLng?> = _draftPickupCoordinate.asStateFlow()
@@ -197,6 +201,43 @@ class PassengerHomeViewModel(
             } finally {
                 _isUpdatingAttendance.value = false
                 _pendingAttendanceStatus.value = null
+            }
+        }
+    }
+
+    fun saveHolidayMode(endDate: Date, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _isSavingHolidayMode.value = true
+            try {
+                val groupID = resolvedGroupID()
+                if (groupID.isBlank()) {
+                    showError(L10n.shuttleInfoNotFound)
+                    return@launch
+                }
+                store.setHolidayMode(groupID, profile.memberID, endDate)
+                showSuccess(L10n.holidayModeSaved)
+                onSuccess()
+            } catch (e: Exception) {
+                showError(e.localizedMessage ?: "Kaydedilemedi")
+            } finally {
+                _isSavingHolidayMode.value = false
+            }
+        }
+    }
+
+    fun clearHolidayMode(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _isSavingHolidayMode.value = true
+            try {
+                val groupID = resolvedGroupID()
+                if (groupID.isBlank()) return@launch
+                store.clearHolidayMode(groupID, profile.memberID)
+                showSuccess(L10n.holidayModeEnded)
+                onSuccess()
+            } catch (e: Exception) {
+                showError(e.localizedMessage ?: "Güncellenemedi")
+            } finally {
+                _isSavingHolidayMode.value = false
             }
         }
     }

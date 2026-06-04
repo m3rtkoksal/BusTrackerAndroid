@@ -12,6 +12,7 @@ import kotlinx.coroutines.delay
 import com.google.firebase.firestore.ListenerRegistration
 import com.mikatechnology.BusTracker.BuildConfig
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
+import com.mikatechnology.BusTracker.data.model.HolidayMode
 import com.mikatechnology.BusTracker.data.model.DriverLocation
 import com.mikatechnology.BusTracker.data.model.MapDefaults
 import com.mikatechnology.BusTracker.data.model.MemberRole
@@ -25,11 +26,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.util.UUID
 
 class ShuttleStore private constructor() {
@@ -475,7 +476,13 @@ class ShuttleStore private constructor() {
         val name = data["name"] as? String ?: return null
         val roleRaw = data["role"] as? String ?: return null
         val role = MemberRole.entries.firstOrNull { it.rawValue == roleRaw } ?: return null
-        return ShuttleMember(id = id, name = name, role = role)
+        val holidayEnd = stringValue(data["holidayModeEndDate"])
+        return ShuttleMember(
+            id = id,
+            name = name,
+            role = role,
+            holidayModeEndDate = holidayEnd
+        )
     }
 
     private fun morningPickupFrom(documentId: String, data: Map<String, Any>?): MorningPickup? {
@@ -520,6 +527,50 @@ class ShuttleStore private constructor() {
             isActive = isActive,
             driverName = driverName
         )
+    }
+
+    suspend fun setHolidayMode(groupID: String, memberID: String, endDate: Date) {
+        require(groupID.isNotBlank()) { "Servis bulunamadı. Çıkış yapıp tekrar katılın." }
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            throw IllegalStateException("Giriş yapmanız gerekiyor.")
+        }
+
+        val endKey = HolidayMode.dateKey(endDate)
+        db.collection("groups").document(groupID)
+            .collection("members").document(memberID)
+            .set(
+                mapOf(
+                    "holidayModeEndDate" to endKey,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            .await()
+
+        _members.value = _members.value.map { member ->
+            if (member.id == memberID) member.copy(holidayModeEndDate = endKey) else member
+        }
+    }
+
+    suspend fun clearHolidayMode(groupID: String, memberID: String) {
+        require(groupID.isNotBlank()) { "Servis bulunamadı. Çıkış yapıp tekrar katılın." }
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            throw IllegalStateException("Giriş yapmanız gerekiyor.")
+        }
+
+        db.collection("groups").document(groupID)
+            .collection("members").document(memberID)
+            .update(
+                mapOf(
+                    "holidayModeEndDate" to FieldValue.delete(),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            )
+            .await()
+
+        _members.value = _members.value.map { member ->
+            if (member.id == memberID) member.copy(holidayModeEndDate = null) else member
+        }
     }
 
     // MARK: - Passenger actions (ported from iOS)

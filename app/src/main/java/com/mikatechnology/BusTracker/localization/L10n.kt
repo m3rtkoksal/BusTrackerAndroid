@@ -60,6 +60,27 @@ object L10n {
     val settingsServiceCode get() = t("Servis Kodu", "Shuttle Code")
     val settingsYourName get() = t("Adınız", "Your Name")
     val settingsShuttle get() = t("Servis", "Shuttle")
+    val holidayModeTitle get() = t("Tatil Modu", "Holiday Mode")
+    val holidayModeOff get() = t("Kapalı", "Off")
+    val holidayModeBadgeActive get() = t("AKTİF", "ON")
+    fun holidayModeUntil(date: String) = t("$date tarihine kadar", "Until $date")
+    val holidayModeCardDetailOff get() = t(
+        "Açın; seçmediğiniz günler gelmiyorum sayılır. İstediğiniz günleri geliyorum seçebilirsiniz.",
+        "Turn on to count unselected days as not coming. You can still mark individual days as coming."
+    )
+    fun holidayModeCardDetailActive(date: String) = t(
+        "$date tarihine kadar seçmediğiniz günler gelmiyorum.",
+        "Until $date, unselected days count as not coming."
+    )
+    val holidayModeCalendarHint get() = t(
+        "Tatilin biteceği günü seçin. Bu tarihe kadar seçmediğiniz günler \"Gelmiyorum\" sayılır; sadece \"Geliyorum\" seçtiğiniz günler sürücü haritasında görünürsünüz.",
+        "Pick the last day of your holiday. Until then, days you don't choose count as \"Not coming\"; only days you select \"Coming\" appear on the driver's map."
+    )
+    val holidayModeEndDateLabel get() = t("Bitiş tarihi", "End date")
+    val holidayModeSave get() = t("Kaydet", "Save")
+    val holidayModeEndEarly get() = t("Tatili bitir", "End holiday now")
+    val holidayModeSaved get() = t("Tatil modu kaydedildi.", "Holiday mode saved.")
+    val holidayModeEnded get() = t("Tatil modu kapatıldı.", "Holiday mode turned off.")
     val signOut get() = t("Çıkış Yap", "Sign Out")
     val deleteAccount get() = t("Hesabı Sil", "Delete Account")
     val inviteLinkShare get() = t("DAVET LİNKİ PAYLAŞ", "SHARE INVITE LINK")

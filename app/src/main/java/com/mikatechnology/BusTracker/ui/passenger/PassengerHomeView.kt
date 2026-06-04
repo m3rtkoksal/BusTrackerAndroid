@@ -46,7 +46,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mikatechnology.BusTracker.auth.GoogleSignInHelper
 import com.mikatechnology.BusTracker.base.BaseViewShell
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
+import com.mikatechnology.BusTracker.data.model.HolidayMode
 import com.mikatechnology.BusTracker.data.model.UserProfile
+import com.mikatechnology.BusTracker.data.model.effectiveAttendance
+import com.mikatechnology.BusTracker.data.model.isHolidayModeActive
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -77,6 +80,7 @@ fun PassengerHomeView(
 
     var showMyServices by remember { mutableStateOf(false) }
     var showLanguagePicker by remember { mutableStateOf(false) }
+    var showHolidayModePicker by remember { mutableStateOf(false) }
     val appLanguage by LanguageManager.language.collectAsStateWithLifecycle()
     val selectedTab by tabController.selectedTab.collectAsState()
     val isTripActive by ShuttleStore.shared.isTripActive.collectAsStateWithLifecycle()
@@ -92,7 +96,28 @@ fun PassengerHomeView(
     val draftCoordinate by viewModel.draftPickupCoordinate.collectAsState()
 
     val myMember = members.firstOrNull { it.id == profile.memberID }
-    val myAttendance = myMember?.attendance ?: AttendanceStatus.Unknown
+    val myAttendance = myMember?.effectiveAttendance() ?: AttendanceStatus.Unknown
+    val isHolidayModeActive = myMember?.isHolidayModeActive() == true
+    val holidayModeSubtitle = remember(myMember?.holidayModeEndDate, isHolidayModeActive) {
+        if (isHolidayModeActive) {
+            myMember?.holidayModeEndDate
+                ?.let { HolidayMode.displayDate(it) }
+                ?.let { L10n.holidayModeUntil(it) }
+                ?: L10n.holidayModeOff
+        } else {
+            L10n.holidayModeOff
+        }
+    }
+    val holidayModeDetailLine = remember(myMember?.holidayModeEndDate, isHolidayModeActive) {
+        if (isHolidayModeActive) {
+            myMember?.holidayModeEndDate
+                ?.let { HolidayMode.displayDate(it) }
+                ?.let { L10n.holidayModeCardDetailActive(it) }
+                ?: L10n.holidayModeCardDetailOff
+        } else {
+            L10n.holidayModeCardDetailOff
+        }
+    }
 
     val savedPickup = remember(morningPickups, profile.memberID) {
         ShuttleStore.shared.morningPickup(profile.memberID)
@@ -154,9 +179,13 @@ fun PassengerHomeView(
                             draftLatitude = draftCoordinate?.latitude,
                             draftLongitude = draftCoordinate?.longitude,
                             isUpdatingAttendance = isUpdatingAttendance,
+                            isHolidayModeActive = isHolidayModeActive,
+                            holidayModeSubtitle = holidayModeSubtitle,
+                            holidayModeDetailLine = holidayModeDetailLine,
                             onAttendanceSelected = { status ->
                                 viewModel.updateAttendance(status, context)
                             },
+                            onOpenHolidayModePicker = { showHolidayModePicker = true },
                             onOpenMap = { tabController.select(PassengerHomeTab.Map) },
                             modifier = Modifier.fillMaxSize()
                         )
@@ -264,6 +293,33 @@ fun PassengerHomeView(
                         showLanguagePicker = false
                     },
                     onDismiss = { showLanguagePicker = false }
+                )
+            }
+
+            val isSavingHolidayMode by viewModel.isSavingHolidayMode.collectAsState()
+            AnimatedVisibility(
+                visible = showHolidayModePicker,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(5f)
+            ) {
+                HolidayModePickerOverlay(
+                    isHolidayActive = isHolidayModeActive,
+                    activeEndDateKey = myMember?.holidayModeEndDate,
+                    isSaving = isSavingHolidayMode,
+                    onConfirm = { endDate ->
+                        viewModel.saveHolidayMode(endDate) {
+                            showHolidayModePicker = false
+                        }
+                    },
+                    onEndHoliday = {
+                        viewModel.clearHolidayMode {
+                            showHolidayModePicker = false
+                        }
+                    },
+                    onDismiss = { showHolidayModePicker = false }
                 )
             }
         }
