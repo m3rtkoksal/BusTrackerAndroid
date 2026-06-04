@@ -62,7 +62,7 @@ class PassengerHomeViewModel(
     fun onAppear(groupID: String) {
         val resolvedGroupID = groupID.ifBlank { profile.primaryGroupID }
         if (resolvedGroupID.isBlank()) {
-            showError("Servis bilgisi bulunamadı. Çıkış yapıp servise yeniden katılın.")
+            showError(L10n.shuttleInfoNotFoundRejoin)
             return
         }
         store.startListening(resolvedGroupID)
@@ -129,12 +129,12 @@ class PassengerHomeViewModel(
 
     fun signOut(context: Context) {
         viewModelScope.launch {
-            setLoading(true, "Çıkış yapılıyor...")
+            setLoading(true, L10n.signingOut)
             try {
                 store.stopListening()
                 UserSessionRepository.signOut(context)
             } catch (e: Exception) {
-                showError(e.localizedMessage ?: "Çıkış yapılamadı.")
+                showError(e.message ?: L10n.signOutFailed)
             } finally {
                 setLoading(false)
             }
@@ -144,17 +144,17 @@ class PassengerHomeViewModel(
     fun deleteAccount(context: Context, googleReauthData: Intent?) {
         viewModelScope.launch {
             if (googleReauthData == null) {
-                showError("Hesap silmek için Google doğrulaması gerekli.")
+                showError(L10n.googleVerificationRequiredForDelete)
                 return@launch
             }
 
-            setLoading(true, "Hesap siliniyor...")
+            setLoading(true, L10n.deletingAccount)
             var profileDeleted = false
             var authRemoved = false
             var shouldSignOut = false
             try {
                 if (!AuthRepository.reauthenticateWithGoogle(googleReauthData)) {
-                    showError("Google doğrulaması tamamlanamadı.")
+                    showError(L10n.googleVerificationFailed)
                     return@launch
                 }
 
@@ -208,9 +208,9 @@ class PassengerHomeViewModel(
                     status = status
                 )
                 _showTripStartedAttendanceSheet.value = false
-                showSuccess("Seçiminiz kaydedildi: ${status.selfChoiceLabel}")
+                showSuccess(L10n.choiceSaved(status.selfChoiceLabel))
             } catch (e: Exception) {
-                showError(e.localizedMessage ?: "Güncellenemedi")
+                showError(e.message ?: L10n.updateFailed)
             } finally {
                 _isUpdatingAttendance.value = false
                 _pendingAttendanceStatus.value = null
@@ -231,7 +231,7 @@ class PassengerHomeViewModel(
                 showSuccess(L10n.holidayModeSaved)
                 onSuccess()
             } catch (e: Exception) {
-                showError(e.localizedMessage ?: "Kaydedilemedi")
+                showError(e.message ?: L10n.saveFailed)
             } finally {
                 _isSavingHolidayMode.value = false
             }
@@ -248,7 +248,7 @@ class PassengerHomeViewModel(
                 showSuccess(L10n.holidayModeEnded)
                 onSuccess()
             } catch (e: Exception) {
-                showError(e.localizedMessage ?: "Güncellenemedi")
+                showError(e.message ?: L10n.updateFailed)
             } finally {
                 _isSavingHolidayMode.value = false
             }
@@ -257,7 +257,7 @@ class PassengerHomeViewModel(
 
     fun saveMorningPickup(context: Context) {
         val coordinate = _draftPickupCoordinate.value ?: run {
-            showError("Haritada biniş noktanızı işaretleyin.")
+            showError(L10n.markPickupOnMapShort)
             return
         }
 
@@ -290,9 +290,9 @@ class PassengerHomeViewModel(
                     status = AttendanceStatus.Coming
                 )
                 _showTripStartedAttendanceSheet.value = false
-                showSuccess("Biniş noktanız kaydedildi. Durumunuz: Geliyorum.")
+                showSuccess(L10n.pickupSavedComing)
             } catch (e: Exception) {
-                showError(e.localizedMessage ?: "Kaydedilemedi")
+                showError(e.message ?: L10n.saveFailed)
             } finally {
                 _isSavingPickup.value = false
             }

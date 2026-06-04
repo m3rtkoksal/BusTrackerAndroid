@@ -50,7 +50,7 @@ class LoginViewModel : BaseViewModel() {
             } catch (_: AuthError.SignInCancelled) {
                 // User cancelled.
             } catch (error: Exception) {
-                showError(error.localizedMessage ?: L10n.googleSignInFailed)
+                showError(error.message ?: L10n.googleSignInFailed)
             } finally {
                 setLoading(false)
             }

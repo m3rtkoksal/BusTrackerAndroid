@@ -118,7 +118,7 @@ class DriverHomeViewModel(
         viewModelScope.launch {
             isTripBusy = true
             _showTripDurationSheet.value = false
-            setLoading(true, "Servis başlatılıyor...")
+            setLoading(true, L10n.startingShuttle)
             try {
                 val hours = _selectedTripDurationHours.value
                 shuttleStore.startTrip(profile.groupID, profile.name, hours)
@@ -127,9 +127,9 @@ class DriverHomeViewModel(
                 } else {
                     "$hours saat"
                 }
-                showSuccess("Servis başlatıldı ($hoursLabel). Süre sonunda otomatik durur.")
+                showSuccess(L10n.shuttleStartedAutoStop(hoursLabel))
             } catch (error: Exception) {
-                showError(error.localizedMessage ?: "Servis başlatılamadı.")
+                showError(error.message ?: L10n.shuttleStartFailed)
             } finally {
                 isTripBusy = false
                 setLoading(false)
@@ -140,12 +140,12 @@ class DriverHomeViewModel(
     private fun stopTrip() {
         viewModelScope.launch {
             isTripBusy = true
-            setLoading(true, "Servis durduruluyor...")
+            setLoading(true, L10n.stoppingShuttle)
             try {
                 shuttleStore.stopTrip(profile.groupID, profile.name)
-                showSuccess("Servis durduruldu.")
+                showSuccess(L10n.shuttleStopped)
             } catch (error: Exception) {
-                showError(error.localizedMessage ?: "Servis durdurulamadı.")
+                showError(error.message ?: L10n.shuttleStopFailed)
             } finally {
                 isTripBusy = false
                 setLoading(false)
@@ -165,7 +165,7 @@ class DriverHomeViewModel(
 
     fun signOut(context: Context) {
         viewModelScope.launch {
-            setLoading(true, "Çıkış yapılıyor...")
+            setLoading(true, L10n.signingOut)
             try {
                 if (shuttleStore.isTripActive.value) {
                     shuttleStore.stopTrip(profile.groupID, profile.name)
@@ -173,7 +173,7 @@ class DriverHomeViewModel(
                 shuttleStore.stopListening()
                 UserSessionRepository.signOut(context)
             } catch (error: Exception) {
-                showError(error.localizedMessage ?: "Çıkış yapılamadı.")
+                showError(error.message ?: L10n.signOutFailed)
             } finally {
                 setLoading(false)
             }
@@ -183,17 +183,17 @@ class DriverHomeViewModel(
     fun deleteAccount(context: Context, googleReauthData: Intent?) {
         viewModelScope.launch {
             if (googleReauthData == null) {
-                showError("Hesap silmek için Google doğrulaması gerekli.")
+                showError(L10n.googleVerificationRequiredForDelete)
                 return@launch
             }
 
-            setLoading(true, "Hesap siliniyor...")
+            setLoading(true, L10n.deletingAccount)
             var profileDeleted = false
             var authRemoved = false
             var shouldSignOut = false
             try {
                 if (!AuthRepository.reauthenticateWithGoogle(googleReauthData)) {
-                    showError("Google doğrulaması tamamlanamadı.")
+                    showError(L10n.googleVerificationFailed)
                     return@launch
                 }
 

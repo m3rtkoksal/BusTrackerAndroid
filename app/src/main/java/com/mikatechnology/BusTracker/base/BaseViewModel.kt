@@ -1,6 +1,7 @@
 package com.mikatechnology.BusTracker.base
 
 import androidx.lifecycle.ViewModel
+import com.mikatechnology.BusTracker.localization.L10n
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,7 +45,7 @@ open class BaseViewModel : ViewModel() {
         }
     }
 
-    fun showError(message: String, title: String = "Hata") {
+    fun showError(message: String, title: String = L10n.error) {
         updateState {
             it.copy(
                 alert = PopupPresentation(
@@ -56,7 +57,7 @@ open class BaseViewModel : ViewModel() {
         }
     }
 
-    fun showSuccess(message: String, title: String = "Başarılı") {
+    fun showSuccess(message: String, title: String = L10n.success) {
         showToast(message, PopupStyle.Success, title)
     }
 
@@ -76,7 +77,7 @@ open class BaseViewModel : ViewModel() {
         }
     }
 
-    fun showInfo(message: String, title: String = "Bilgi") {
+    fun showInfo(message: String, title: String = L10n.info) {
         updateState {
             it.copy(
                 alert = PopupPresentation(
@@ -91,8 +92,8 @@ open class BaseViewModel : ViewModel() {
     fun showConfirm(
         title: String,
         message: String,
-        confirmTitle: String = "Onayla",
-        cancelTitle: String = "Vazgeç",
+        confirmTitle: String = L10n.confirm,
+        cancelTitle: String = L10n.cancel,
         destructive: Boolean = false,
         onConfirm: () -> Unit
     ) {
@@ -128,7 +129,7 @@ open class BaseViewModel : ViewModel() {
         updateState { it.copy(toast = null) }
     }
 
-    fun setLoading(loading: Boolean, message: String = "Yükleniyor...") {
+    fun setLoading(loading: Boolean, message: String = L10n.loading) {
         updateState {
             it.copy(
                 isLoading = loading,

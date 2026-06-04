@@ -21,6 +21,7 @@ import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.data.model.ShuttleMember
 import com.mikatechnology.BusTracker.data.model.TripTelemetry
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.services.MotionActivityRole
 import com.mikatechnology.BusTracker.services.MotionActivitySegment
@@ -179,9 +180,9 @@ class ShuttleStore private constructor() {
 
     suspend fun startTrip(groupID: String, driverName: String, durationHours: Double) {
         if (_isTripActive.value) return
-        require(durationHours > 0) { "Servis süresi seçin." }
+        require(durationHours > 0) { L10n.selectTripDuration }
         require(LocationTracker.canDriverStartTrip()) {
-            "Servisi başlatmak için Ayarlar'dan \"Her zaman\" konum iznini açmanız gerekir."
+            L10n.alwaysLocationRequiredToStartTrip
         }
 
         val endsAt = Date(System.currentTimeMillis() + (durationHours * 3_600_000).toLong())
@@ -712,7 +713,7 @@ class ShuttleStore private constructor() {
         if (!isActive) return null
 
         val updatedAt = (data["updatedAt"] as? com.google.firebase.Timestamp)?.toDate() ?: Date()
-        val driverName = data["driverName"] as? String ?: "Şoför"
+        val driverName = data["driverName"] as? String ?: L10n.driverDefaultName
 
         var resolvedLatitude = latitude
         var resolvedLongitude = longitude
@@ -731,9 +732,9 @@ class ShuttleStore private constructor() {
     }
 
     suspend fun setHolidayMode(groupID: String, memberID: String, endDate: Date) {
-        require(groupID.isNotBlank()) { "Servis bulunamadı. Çıkış yapıp tekrar katılın." }
+        require(groupID.isNotBlank()) { L10n.shuttleNotFoundRejoin }
         if (FirebaseAuth.getInstance().currentUser == null) {
-            throw IllegalStateException("Giriş yapmanız gerekiyor.")
+            throw IllegalStateException(L10n.signInRequired)
         }
 
         val endKey = HolidayMode.dateKey(endDate)
@@ -755,9 +756,9 @@ class ShuttleStore private constructor() {
     }
 
     suspend fun clearHolidayMode(groupID: String, memberID: String) {
-        require(groupID.isNotBlank()) { "Servis bulunamadı. Çıkış yapıp tekrar katılın." }
+        require(groupID.isNotBlank()) { L10n.shuttleNotFoundRejoin }
         if (FirebaseAuth.getInstance().currentUser == null) {
-            throw IllegalStateException("Giriş yapmanız gerekiyor.")
+            throw IllegalStateException(L10n.signInRequired)
         }
 
         db.collection("groups").document(groupID)
@@ -827,9 +828,9 @@ class ShuttleStore private constructor() {
         status: AttendanceStatus,
         dateKey: String = todayKey
     ) {
-        require(groupID.isNotBlank()) { "Servis bulunamadı. Çıkış yapıp tekrar katılın." }
+        require(groupID.isNotBlank()) { L10n.shuttleNotFoundRejoin }
         if (FirebaseAuth.getInstance().currentUser == null) {
-            throw IllegalStateException("Giriş yapmanız gerekiyor.")
+            throw IllegalStateException(L10n.signInRequired)
         }
 
         val ref = db.collection("groups").document(groupID)
@@ -874,9 +875,9 @@ class ShuttleStore private constructor() {
         latitude: Double,
         longitude: Double
     ) {
-        require(groupID.isNotBlank()) { "Servis bulunamadı. Çıkış yapıp tekrar katılın." }
+        require(groupID.isNotBlank()) { L10n.shuttleNotFoundRejoin }
         if (FirebaseAuth.getInstance().currentUser == null) {
-            throw IllegalStateException("Giriş yapmanız gerekiyor.")
+            throw IllegalStateException(L10n.signInRequired)
         }
 
         db.collection("groups").document(groupID)

@@ -111,6 +111,36 @@ object L10n {
     val serviceCodeCopied get() = t("Servis kodu kopyalandı.", "Shuttle code copied.")
     val markPickupOnMap get() = t("Haritada sabah biniş noktanızı işaretleyin.", "Mark your morning pickup point on the map.")
     val shuttleInfoNotFound get() = t("Servis bilgisi bulunamadı.", "Shuttle information not found.")
+    val shuttleInfoNotFoundRejoin get() = t(
+        "Servis bilgisi bulunamadı. Çıkış yapıp servise yeniden katılın.",
+        "Shuttle information not found. Sign out and join the shuttle again."
+    )
+    val signOutFailed get() = t("Çıkış yapılamadı.", "Could not sign out.")
+    val signingOut get() = t("Çıkış yapılıyor...", "Signing out...")
+    val deletingAccount get() = t("Hesap siliniyor...", "Deleting account...")
+    val googleVerificationRequiredForDelete get() = t(
+        "Hesap silmek için Google doğrulaması gerekli.",
+        "Google verification is required to delete your account."
+    )
+    val googleVerificationFailed get() = t(
+        "Google doğrulaması tamamlanamadı.",
+        "Google verification could not be completed."
+    )
+    val updateFailed get() = t("Güncellenemedi.", "Could not update.")
+    val saveFailed get() = t("Kaydedilemedi.", "Could not save.")
+    val shuttleStartFailed get() = t("Servis başlatılamadı.", "Could not start the shuttle.")
+    val shuttleStopFailed get() = t("Servis durdurulamadı.", "Could not stop the shuttle.")
+    val startingShuttle get() = t("Servis başlatılıyor...", "Starting shuttle...")
+    val stoppingShuttle get() = t("Servis durduruluyor...", "Stopping shuttle...")
+    val markPickupOnMapShort get() = t("Haritada biniş noktanızı işaretleyin.", "Mark your pickup point on the map.")
+    val shuttleNotFoundRejoin get() = t(
+        "Servis bulunamadı. Çıkış yapıp tekrar katılın.",
+        "Shuttle not found. Sign out and join again."
+    )
+    val alwaysLocationRequiredToStartTrip get() = t(
+        "Servisi başlatmak için Ayarlar'dan \"Her zaman\" konum iznini açmanız gerekir.",
+        "To start the shuttle, enable \"Always\" location permission in Settings."
+    )
     val loginTitle get() = t("Giriş", "Sign In")
     val signingIn get() = t("Giriş yapılıyor...", "Signing in...")
     val signInAction get() = t("Giriş Yap", "Sign In")

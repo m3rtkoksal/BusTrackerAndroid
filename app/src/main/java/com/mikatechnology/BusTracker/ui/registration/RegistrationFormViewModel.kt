@@ -205,7 +205,7 @@ class RegistrationFormViewModel(
                 // User cancelled.
             } catch (error: Exception) {
                 if (!applyPassengerServiceFieldError(error)) {
-                    showError(error.localizedMessage ?: L10n.accountCreateFailed)
+                    showError(error.message ?: L10n.accountCreateFailed)
                 }
                 if (UserSessionRepository.profile.value == null) {
                     AuthRepository.signOut()
