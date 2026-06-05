@@ -15,6 +15,7 @@ import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.localization.L10n
+import com.mikatechnology.BusTracker.services.BusTrackerAnalytics
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -122,6 +123,7 @@ class DriverHomeViewModel(
             try {
                 val hours = _selectedTripDurationHours.value
                 shuttleStore.startTrip(profile.groupID, profile.name, hours)
+                BusTrackerAnalytics.tripStarted(hours)
                 val hoursLabel = if (hours == hours.toLong().toDouble()) {
                     "${hours.toInt()} saat"
                 } else {

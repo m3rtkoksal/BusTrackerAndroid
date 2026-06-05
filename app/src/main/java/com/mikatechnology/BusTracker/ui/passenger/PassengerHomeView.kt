@@ -59,6 +59,7 @@ import com.mikatechnology.BusTracker.services.MotionActivityService
 import com.mikatechnology.BusTracker.services.PushNotificationRouter
 import com.mikatechnology.BusTracker.services.SparseModeSuggestion
 import com.mikatechnology.BusTracker.services.SparseModeSuggestionNotifier
+import com.mikatechnology.BusTracker.services.BusTrackerAnalytics
 import kotlinx.coroutines.delay
 import com.mikatechnology.BusTracker.ui.services.MyServicesScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -433,11 +434,15 @@ fun PassengerHomeView(
                     SparseModeSuggestionSheet(
                         comingDays = sparseModeComingDays,
                         onConfirm = {
+                            BusTrackerAnalytics.sparseModePrompt("ok")
                             showSparseModeSuggestionSheet = false
                             tabController.select(PassengerHomeTab.Service)
                             showHolidayModePicker = true
                         },
-                        onLater = { showSparseModeSuggestionSheet = false },
+                        onLater = {
+                            BusTrackerAnalytics.sparseModePrompt("later")
+                            showSparseModeSuggestionSheet = false
+                        },
                         modifier = Modifier.align(Alignment.BottomCenter)
                     )
                 }

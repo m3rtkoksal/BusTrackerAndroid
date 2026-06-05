@@ -20,6 +20,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.mikatechnology.BusTracker.data.model.UserProfile
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.NotificationService
 import kotlinx.coroutines.launch
 
@@ -112,21 +113,19 @@ fun NotificationPermissionHandler(
     if (showSettingsDialog) {
         AlertDialog(
             onDismissRequest = { showSettingsDialog = false },
-            title = { Text("Bildirimler kapalı") },
-            text = {
-                Text("Servis başladığında ve sürücü yaklaştığında haberdar olmak için bildirimleri açın.")
-            },
+            title = { Text(L10n.notificationsDisabledTitle) },
+            text = { Text(L10n.notificationsDisabledMessage) },
             confirmButton = {
                 TextButton(onClick = {
                     showSettingsDialog = false
                     NotificationService.openAppSettings(context)
                 }) {
-                    Text("Ayarları Aç")
+                    Text(L10n.openSettings)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSettingsDialog = false }) {
-                    Text("Sonra")
+                    Text(L10n.later)
                 }
             }
         )

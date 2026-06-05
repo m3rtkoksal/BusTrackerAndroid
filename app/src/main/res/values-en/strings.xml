@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Shuttle Live</string>
+    <string name="motion_permission_rationale">Motion data is used to detect when you board the shuttle automatically; continuous location sharing is not required.</string>
+</resources>

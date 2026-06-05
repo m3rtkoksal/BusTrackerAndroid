@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
 @Composable
@@ -50,7 +51,7 @@ fun DriverAlwaysLocationGuideSheet(
         )
 
         Text(
-            text = "Servis için konum izni",
+            text = L10n.locationPermissionTitle,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = NeonTheme.OnSurface,
@@ -59,9 +60,9 @@ fun DriverAlwaysLocationGuideSheet(
 
         Text(
             text = if (waitingForSettingsReturn) {
-                "Ayarlar açıldıysa aşağıdaki adımları uygulayın, sonra bu ekrana dönün."
+                L10n.locationPermissionBodySettings
             } else {
-                "Yolcular sizi haritada görebilsin diye tek seferlik izin gerekir."
+                L10n.locationPermissionBodyInitial
             },
             fontSize = 14.sp,
             color = NeonTheme.OnSurfaceVariant,
@@ -69,9 +70,9 @@ fun DriverAlwaysLocationGuideSheet(
             lineHeight = 20.sp
         )
 
-        GuideStep(number = 1, text = "Açılan pencerede Konum veya İzinler'e dokunun.")
-        GuideStep(number = 2, text = "\"Her zaman izin ver\" seçeneğini işaretleyin.")
-        GuideStep(number = 3, text = "Geri gelip Servisi başlat'a tekrar basın.")
+        GuideStep(number = 1, text = L10n.locationStep1)
+        GuideStep(number = 2, text = L10n.locationStep2)
+        GuideStep(number = 3, text = L10n.locationStep3)
 
         Box(
             modifier = Modifier
@@ -84,7 +85,7 @@ fun DriverAlwaysLocationGuideSheet(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "İZİN VER",
+                text = L10n.grantPermission,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 1.2.sp,
@@ -93,13 +94,13 @@ fun DriverAlwaysLocationGuideSheet(
         }
 
         Text(
-            text = "Pencere açılmadıysa",
+            text = L10n.ifWindowDidNotOpen,
             fontSize = 12.sp,
             color = NeonTheme.OnSurfaceVariant
         )
 
         Text(
-            text = "Ayarlara git",
+            text = L10n.goToSettings,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = NeonTheme.Secondary,
@@ -107,7 +108,7 @@ fun DriverAlwaysLocationGuideSheet(
         )
 
         Text(
-            text = "Vazgeç",
+            text = L10n.cancel,
             fontSize = 13.sp,
             color = NeonTheme.OnSurfaceVariant.copy(alpha = 0.7f),
             modifier = Modifier

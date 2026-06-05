@@ -44,6 +44,13 @@ enum class AttendanceStatus(val rawValue: String) {
             Unknown -> L10n.attendanceUnknown
         }
 
+    val analyticsValue: String
+        get() = when (this) {
+            Coming -> "coming"
+            NotComing -> "not_coming"
+            Unknown -> "unknown"
+        }
+
     companion object {
         fun fromRaw(value: String?): AttendanceStatus? {
             return entries.firstOrNull { it.rawValue == value }

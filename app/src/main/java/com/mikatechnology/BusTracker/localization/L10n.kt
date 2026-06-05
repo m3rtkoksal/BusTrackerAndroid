@@ -222,6 +222,10 @@ object L10n {
     val notificationsOnTemporary get() = t("Açık (geçici)", "On (temporary)")
     val notificationsUnknown get() = t("Bilinmiyor", "Unknown")
     val notificationsDisabledTitle get() = t("Bildirimler kapalı", "Notifications are off")
+    val notificationsDisabledMessage get() = t(
+        "Servis başladığında ve sürücü yaklaştığında haberdar olmak için bildirimleri açın.",
+        "Enable notifications to know when the shuttle starts and when the driver is nearby."
+    )
     val openSettings get() = t("Ayarları Aç", "Open Settings")
     val later get() = t("Sonra", "Later")
     val nextStop get() = t("SONRAKİ DURAK", "NEXT STOP")
@@ -233,9 +237,33 @@ object L10n {
     val shuttleWaiting get() = t("Servis bekliyor", "Shuttle waiting")
     val tripDuration get() = t("Servis Süresi", "Shuttle Duration")
     val locationPermissionTitle get() = t("Servis için konum izni", "Location permission for shuttle")
+    val locationPermissionBodySettings get() = t(
+        "Ayarlar açıldıysa aşağıdaki adımları uygulayın, sonra bu ekrana dönün.",
+        "If Settings opened, follow the steps below, then return to this screen."
+    )
+    val locationPermissionBodyInitial get() = t(
+        "Yolcular sizi haritada görebilsin diye tek seferlik izin gerekir.",
+        "One-time permission is required so passengers can see you on the map."
+    )
+    val locationStep1 get() = t("Açılan pencerede Konum veya İzinler'e dokunun.", "In the dialog, tap Location or Permissions.")
+    val locationStep2 get() = t("\"Her zaman izin ver\" seçeneğini işaretleyin.", "Select \"Always allow\".")
+    val locationStep3 get() = t("Geri gelip Servisi başlat'a tekrar basın.", "Come back and tap Start Shuttle again.")
     val grantPermission get() = t("İZİN VER", "GRANT PERMISSION")
+    val grantPermissionShort get() = t("İzin ver", "Allow")
     val ifWindowDidNotOpen get() = t("Pencere açılmadıysa", "If the dialog didn't open")
     val goToSettings get() = t("Ayarlara git", "Go to Settings")
+    val driverLocationPermissionDenied get() = t(
+        "Konum izni kapalı. Servis başlatmak ve konum paylaşmak için izin gerekli.",
+        "Location permission is off. Permission is required to start the shuttle and share your location."
+    )
+    val driverLocationSharingStopped get() = t(
+        "Konum paylaşımı durdu. Ayarlar'dan \"Her zaman\" iznini açın veya seferi yeniden başlatın.",
+        "Location sharing stopped. Enable \"Always\" permission in Settings or restart the trip."
+    )
+    val motionPermissionRationale get() = t(
+        "Servise bindiğinizi otomatik anlamak için hareket veriniz kullanılır; sürekli konum paylaşımı gerekmez.",
+        "Motion data is used to detect when you board the shuttle automatically; continuous location sharing is not required."
+    )
     val shuttleStarted get() = t("Servis başladı", "Shuttle started")
     val clothingAdvice get() = t("GİYİM ÖNERİSİ", "CLOTHING TIP")
     val weatherLoading get() = t("Biniş noktana göre öneri hazırlanıyor…", "Preparing a tip for your pickup point…")

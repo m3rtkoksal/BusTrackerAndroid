@@ -135,22 +135,22 @@ fun DriverPassengersTab(
 
         when {
             locationAuthStatus.isDenied -> LocationPermissionBanner(
-                message = "Konum izni kapalı. Servis başlatmak ve konum paylaşmak için izin gerekli.",
+                message = com.mikatechnology.BusTracker.localization.L10n.driverLocationPermissionDenied,
                 actionColor = DangerColor,
-                primaryLabel = "İzin ver",
+                primaryLabel = com.mikatechnology.BusTracker.localization.L10n.grantPermissionShort,
                 onPrimaryAction = onRequestForegroundPermission,
-                secondaryLabel = "Ayarlara git",
+                secondaryLabel = com.mikatechnology.BusTracker.localization.L10n.goToSettings,
                 onSecondaryAction = { openAppSettings(context) }
             )
 
             isTripActive &&
                 locationAuthStatus.needsAlwaysAuthorization(LocationPermissionRole.Driver) ->
                 LocationPermissionBanner(
-                    message = "Konum paylaşımı durdu. Ayarlar'dan \"Her zaman\" iznini açın veya seferi yeniden başlatın.",
+                    message = com.mikatechnology.BusTracker.localization.L10n.driverLocationSharingStopped,
                     actionColor = WarningColor,
-                    primaryLabel = "Her zaman iznini aç",
+                    primaryLabel = com.mikatechnology.BusTracker.localization.L10n.enableAlwaysLocation,
                     onPrimaryAction = onRequestAlwaysPermission,
-                    secondaryLabel = "Ayarlara git",
+                    secondaryLabel = com.mikatechnology.BusTracker.localization.L10n.goToSettings,
                     onSecondaryAction = { openAppSettings(context) }
                 )
         }

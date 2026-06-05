@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Shuttle Live</string>
+    <string name="motion_permission_rationale">Servise bindiğinizi otomatik anlamak için hareket veriniz kullanılır; sürekli konum paylaşımı gerekmez.</string>
+</resources>

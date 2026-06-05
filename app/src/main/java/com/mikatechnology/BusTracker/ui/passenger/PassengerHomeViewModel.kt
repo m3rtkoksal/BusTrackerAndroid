@@ -13,6 +13,7 @@ import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.AttendanceUsageTracker
+import com.mikatechnology.BusTracker.services.BusTrackerAnalytics
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -207,6 +208,7 @@ class PassengerHomeViewModel(
                     dateKey = dateKey,
                     status = status
                 )
+                BusTrackerAnalytics.attendanceSelected(status.analyticsValue)
                 _showTripStartedAttendanceSheet.value = false
                 showSuccess(L10n.choiceSaved(status.selfChoiceLabel))
             } catch (e: Exception) {
@@ -228,6 +230,7 @@ class PassengerHomeViewModel(
                     return@launch
                 }
                 store.setHolidayMode(groupID, profile.memberID, endDate)
+                BusTrackerAnalytics.holidayModeSaved()
                 showSuccess(L10n.holidayModeSaved)
                 onSuccess()
             } catch (e: Exception) {
@@ -245,6 +248,7 @@ class PassengerHomeViewModel(
                 val groupID = resolvedGroupID()
                 if (groupID.isBlank()) return@launch
                 store.clearHolidayMode(groupID, profile.memberID)
+                BusTrackerAnalytics.holidayModeEnded()
                 showSuccess(L10n.holidayModeEnded)
                 onSuccess()
             } catch (e: Exception) {
@@ -289,6 +293,7 @@ class PassengerHomeViewModel(
                     dateKey = dateKey,
                     status = AttendanceStatus.Coming
                 )
+                BusTrackerAnalytics.pickupSaved()
                 _showTripStartedAttendanceSheet.value = false
                 showSuccess(L10n.pickupSavedComing)
             } catch (e: Exception) {

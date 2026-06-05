@@ -31,6 +31,7 @@ object LanguageManager {
             .edit()
             .putString(LANGUAGE_KEY, language.code)
             .apply()
+        AppLocale.apply(language)
     }
 
     fun t(turkish: String, english: String): String {
