@@ -108,7 +108,13 @@ object LocationTracker {
                 foregroundGranted &&
                 backgroundGranted -> LocationAuthStatus.Always
             foregroundGranted -> LocationAuthStatus.WhenInUse
-            else -> LocationAuthStatus.Denied
+        else -> {
+            if (!DriverStartPermissionPrefs.hasRequestedFineLocation(context)) {
+                LocationAuthStatus.NotDetermined
+            } else {
+                LocationAuthStatus.Denied
+            }
+        }
         }
     }
 
@@ -217,6 +223,9 @@ object LocationTracker {
         refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
         return _authorizationStatus.value == LocationAuthStatus.Always
     }
+
+    /** Sürücü seferi: yalnızca "Her zaman". "Uygulama kullanılırken" yetmez. */
+    fun driverHasAlwaysLocationForTrip(context: Context): Boolean = hasDriverAlwaysLocation(context)
 
     /** Sürücü seferi — yalnızca "Her zaman" konum izni ile başlatılabilir. */
     fun canDriverStartTrip(): Boolean {

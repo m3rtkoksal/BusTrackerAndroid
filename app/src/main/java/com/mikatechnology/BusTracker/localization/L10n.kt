@@ -57,6 +57,10 @@ object L10n {
         t("$dateLabel GELECEK MİSİNİZ?", "ARE YOU COMING ON $dateLabel?")
     val pickupPoint get() = t("BİNİŞ NOKTASI", "PICKUP POINT")
     val noPickupSaved get() = t("Henüz biniş noktası kaydetmediniz.", "You haven't saved a pickup point yet.")
+    val comingBlockedWithoutPickup get() = t(
+        "Kayıtlı biniş noktanız olmadığı için seçim yapamazsınız.",
+        "You can't make a selection because you haven't saved a pickup point."
+    )
     val setOnMap get() = t("HARİTADA BELİRLE", "SET ON MAP")
     val editOnMap get() = t("HARİTADA DÜZENLE", "EDIT ON MAP")
     val savePickupPoint get() = t("BİNİŞ NOKTAMI KAYDET", "SAVE MY PICKUP POINT")
@@ -264,6 +268,62 @@ object L10n {
         "Servise bindiğinizi otomatik anlamak için hareket veriniz kullanılır; sürekli konum paylaşımı gerekmez.",
         "Motion data is used to detect when you board the shuttle automatically; continuous location sharing is not required."
     )
+    val motionPermissionTitle get() = t("Hareket izni gerekli", "Motion permission required")
+    val driverLocationForegroundTitle get() = t("Konum izni gerekli", "Location permission required")
+    val driverLocationForegroundBody get() = t(
+        "Servisi başlatmak için önce konum izni vermeniz gerekir.",
+        "Location permission is required before you can start the shuttle."
+    )
+    val locationForegroundSettingsStep1 get() = t("\"Ayarlara git\"e basın.", "Tap \"Go to Settings\".")
+    val locationForegroundSettingsStep2 get() = t(
+        "Konum → \"Uygulama Kullanılırken\" veya \"Her Zaman\" seçin.",
+        "Location → select \"While Using\" or \"Always\"."
+    )
+    val locationForegroundSettingsStep3 get() = t("Uygulamaya dönün.", "Return to the app.")
+    val motionPermissionDisabledMessage get() = t(
+        "Servise bindiğinizi anlamak için hareket izni gerekir. Ayarlardan açın.",
+        "Motion permission is required to detect boarding. Enable it in Settings."
+    )
+    val driverMotionPermissionBody get() = t(
+        "Yolcuların servise bindiğini anlamak için hareket izni gerekir.",
+        "Motion permission is required to detect when passengers board the shuttle."
+    )
+    val motionPermissionBodySettings get() = t(
+        "Ayarlar açıldıysa aşağıdaki adımları uygulayın, sonra bu ekrana dönün.",
+        "If Settings opened, follow the steps below, then return to this screen."
+    )
+    val motionSettingsStep1 get() = t("\"Ayarlara git\"e basın.", "Tap \"Go to Settings\".")
+    val motionSettingsStep2 get() = t(
+        "İzinler → Fiziksel aktivite'yi açın.",
+        "Permissions → enable Physical activity."
+    )
+    val motionSettingsStep3 get() = t("Uygulamaya dönün.", "Return to the app.")
+    val driverNotificationPermissionBody get() = t(
+        "Yolcular katıldığında ve servis başladığında haberdar olmak için bildirimleri açın.",
+        "Enable notifications to know when passengers board and when the shuttle starts."
+    )
+    val passengerNotificationPermissionBody get() = t(
+        "Bildirimleri açmadan konum ve kayıt adımlarına devam edemezsiniz.",
+        "You must enable notifications before continuing with location and saving."
+    )
+    val passengerLocationForegroundBody get() = t(
+        "Biniş noktanızı kaydetmek için konum izni gerekir.",
+        "Location permission is required to save your pickup point."
+    )
+    val passengerMotionPermissionBody get() = t(
+        "Servise bindiğinizi otomatik anlamak için hareket izni gerekir.",
+        "Motion permission is required to detect when you board the shuttle automatically."
+    )
+    val notificationPermissionBodySettings get() = t(
+        "Ayarlar açıldıysa aşağıdaki adımları uygulayın, sonra bu ekrana dönün.",
+        "If Settings opened, follow the steps below, then return to this screen."
+    )
+    val notificationSettingsStep1 get() = t("\"Ayarlara git\"e basın.", "Tap \"Go to Settings\".")
+    val notificationSettingsStep2 get() = t(
+        "Bildirimler → BusTracker'ı açın.",
+        "Notifications → enable BusTracker."
+    )
+    val notificationSettingsStep3 get() = t("Uygulamaya dönün.", "Return to the app.")
     val shuttleStarted get() = t("Servis başladı", "Shuttle started")
     val clothingAdvice get() = t("GİYİM ÖNERİSİ", "CLOTHING TIP")
     val weatherLoading get() = t("Biniş noktana göre öneri hazırlanıyor…", "Preparing a tip for your pickup point…")

@@ -60,6 +60,10 @@ class DriverHomeViewModel(
         _showTripDurationSheet.value = false
     }
 
+    fun presentTripDurationSheet() {
+        _showTripDurationSheet.value = true
+    }
+
     fun selectTripDurationHours(hours: Double) {
         _selectedTripDurationHours.value = hours
     }

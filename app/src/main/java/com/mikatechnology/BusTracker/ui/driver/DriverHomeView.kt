@@ -75,6 +75,12 @@ import com.mikatechnology.BusTracker.ui.settings.SettingsSignOutRow
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 import com.mikatechnology.BusTracker.util.openAppSettings
 
+private class DriverPermissionLauncherRefs {
+    var requestForegroundLocation: () -> Unit = {}
+    var requestBackgroundLocation: () -> Unit = {}
+    var requestActivityRecognition: () -> Unit = {}
+}
+
 @Composable
 fun DriverHomeView(
     profile: UserProfile,
@@ -97,9 +103,13 @@ fun DriverHomeView(
     val selectedTab by tabController.selectedTab.collectAsStateWithLifecycle()
     var showMyServices by remember { mutableStateOf(false) }
     var showLanguagePicker by remember { mutableStateOf(false) }
-    var showAlwaysLocationGuide by remember { mutableStateOf(false) }
+    var activeStartPermissionSheet by remember { mutableStateOf<DriverStartPermissionSheet?>(null) }
     val appLanguage by LanguageManager.language.collectAsStateWithLifecycle()
     var waitingForSettingsReturn by remember { mutableStateOf(false) }
+    var waitingForMotionSettingsReturn by remember { mutableStateOf(false) }
+    var pendingTripAfterPermissions by remember { mutableStateOf(false) }
+    var isRequestingFineLocation by remember { mutableStateOf(false) }
+    var isRequestingMotion by remember { mutableStateOf(false) }
 
     val members by ShuttleStore.shared.members.collectAsStateWithLifecycle()
     val attendanceRevision by ShuttleStore.shared.attendanceRevision.collectAsStateWithLifecycle()
@@ -123,21 +133,57 @@ fun DriverHomeView(
         deviceLocation = deviceLocation ?: LocationTracker.effectiveLocation,
         driverName = profile.name
     )
-    val canStartTrip = locationAuthStatus == LocationAuthStatus.Always
+
+    val launcherRefs = remember { DriverPermissionLauncherRefs() }
+
+    val permissionScope = DriverStartPermissionScope(
+        context = context,
+        viewModel = viewModel,
+        requestForegroundLocation = { launcherRefs.requestForegroundLocation() },
+        requestActivityRecognition = { launcherRefs.requestActivityRecognition() },
+        pendingTripAfterPermissions = { pendingTripAfterPermissions },
+        setPendingTripAfterPermissions = { pendingTripAfterPermissions = it },
+        activeStartPermissionSheet = { activeStartPermissionSheet },
+        setActiveStartPermissionSheet = { activeStartPermissionSheet = it },
+        waitingForSettingsReturn = { waitingForSettingsReturn },
+        setWaitingForSettingsReturn = { waitingForSettingsReturn = it },
+        waitingForMotionSettingsReturn = { waitingForMotionSettingsReturn },
+        setWaitingForMotionSettingsReturn = { waitingForMotionSettingsReturn = it },
+        isRequestingFineLocation = { isRequestingFineLocation },
+        setIsRequestingFineLocation = { isRequestingFineLocation = it },
+        isRequestingMotion = { isRequestingMotion },
+        setIsRequestingMotion = { isRequestingMotion = it }
+    )
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) {
+    ) { _ ->
+        permissionScope.setIsRequestingFineLocation(false)
         LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
         if (LocationTracker.hasFineLocation(context)) {
             LocationTracker.requestSingleLocation(context)
         }
+        if (!permissionScope.pendingTripAfterPermissions()) return@rememberLauncherForActivityResult
+        if (!LocationTracker.hasFineLocation(context)) {
+            permissionScope.setActiveStartPermissionSheet(DriverStartPermissionSheet.LocationForeground)
+            return@rememberLauncherForActivityResult
+        }
+        permissionScope.continueStartTripPermissionFlow()
     }
 
     val activityRecognitionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) {
+        permissionScope.setIsRequestingMotion(false)
         MotionActivityService.refreshAuthorization(context)
+        if (permissionScope.pendingTripAfterPermissions()) {
+            if (!MotionActivityService.hasActivityRecognitionPermission(context)) {
+                permissionScope.setActiveStartPermissionSheet(DriverStartPermissionSheet.Motion)
+            } else {
+                permissionScope.continueStartTripPermissionFlow()
+            }
+            return@rememberLauncherForActivityResult
+        }
         if (isTripActive && profile.primaryGroupID.isNotBlank() && profile.memberID.isNotBlank()) {
             MotionActivityService.updateMonitoring(
                 context = context,
@@ -154,14 +200,21 @@ fun DriverHomeView(
     ) { granted ->
         LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
         if (granted) {
-            showAlwaysLocationGuide = false
             waitingForSettingsReturn = false
         } else {
             waitingForSettingsReturn = true
         }
+        if (permissionScope.pendingTripAfterPermissions()) {
+            if (!LocationTracker.hasDriverAlwaysLocation(context)) {
+                permissionScope.setWaitingForSettingsReturn(true)
+                permissionScope.setActiveStartPermissionSheet(DriverStartPermissionSheet.LocationAlways)
+            } else {
+                permissionScope.continueStartTripPermissionFlow()
+            }
+        }
     }
 
-    fun requestForegroundLocationPermission() {
+    launcherRefs.requestForegroundLocation = {
         permissionLauncher.launch(
             arrayOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
@@ -169,18 +222,10 @@ fun DriverHomeView(
             )
         )
     }
-
-    fun requestAlwaysLocationPermission() {
-        if (!LocationTracker.hasFineLocation(context)) {
-            requestForegroundLocationPermission()
-            return
-        }
-        if (LocationTracker.hasDriverAlwaysLocation(context)) return
-        showAlwaysLocationGuide = true
-        waitingForSettingsReturn = false
+    launcherRefs.requestActivityRecognition = {
+        activityRecognitionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
     }
-
-    fun launchAlwaysPermissionFromGuide() {
+    launcherRefs.requestBackgroundLocation = {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
         } else {
@@ -189,27 +234,20 @@ fun DriverHomeView(
         }
     }
 
-    fun refreshDriverLocationAuth() {
-        LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
-    }
-
-    fun canDriverStartTripNow(): Boolean {
-        refreshDriverLocationAuth()
-        return LocationTracker.hasDriverAlwaysLocation(context)
-    }
-
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(lifecycleOwner, profile.groupID) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
+            MotionActivityService.refreshAuthorization(context)
             if (LocationTracker.hasFineLocation(context)) {
                 LocationTracker.requestSingleLocation(context)
             }
-            if (LocationTracker.hasDriverAlwaysLocation(context)) {
-                showAlwaysLocationGuide = false
-                waitingForSettingsReturn = false
-            }
+            permissionScope.onDriverPermissionsUpdated()
         }
+    }
+
+    LaunchedEffect(locationAuthStatus) {
+        permissionScope.onDriverPermissionsUpdated()
     }
 
     LaunchedEffect(profile.groupID) {
@@ -264,11 +302,11 @@ fun DriverHomeView(
                             isTripBusy = uiState.isLoading,
                             locationAuthStatus = locationAuthStatus,
                             onToggleTrip = {
-                                val allowed = canDriverStartTripNow()
-                                if (!isTripActive && !allowed) {
-                                    requestAlwaysLocationPermission()
+                                if (isTripActive) {
+                                    viewModel.handleTripControlTap(true)
+                                } else {
+                                    permissionScope.continueStartTripPermissionFlow()
                                 }
-                                viewModel.handleTripControlTap(allowed)
                             },
                             onCopyCode = {
                                 val copied = com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.copy(
@@ -277,8 +315,11 @@ fun DriverHomeView(
                                 )
                                 com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.showResult(context, copied)
                             },
-                            onRequestForegroundPermission = { requestForegroundLocationPermission() },
-                            onRequestAlwaysPermission = { requestAlwaysLocationPermission() }
+                            onRequestForegroundPermission = { permissionScope.requestForegroundLocationPermission() },
+                            onRequestAlwaysPermission = {
+                                permissionScope.setPendingTripAfterPermissions(true)
+                                permissionScope.continueStartTripPermissionFlow()
+                            }
                         )
 
                         DriverHomeTab.Map -> {
@@ -331,7 +372,7 @@ fun DriverHomeView(
             }
 
             AnimatedVisibility(
-                visible = showAlwaysLocationGuide,
+                visible = activeStartPermissionSheet != null,
                 enter = fadeIn() + slideInVertically { it },
                 exit = fadeOut() + slideOutVertically { it },
                 modifier = Modifier
@@ -343,18 +384,45 @@ fun DriverHomeView(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f))
-                            .clickable { showAlwaysLocationGuide = false }
+                            .clickable { activeStartPermissionSheet = null }
                     )
-                    DriverAlwaysLocationGuideSheet(
-                        waitingForSettingsReturn = waitingForSettingsReturn,
-                        onRequestPermission = { launchAlwaysPermissionFromGuide() },
-                        onOpenSettings = {
-                            waitingForSettingsReturn = true
-                            openAppSettings(context)
-                        },
-                        onDismiss = { showAlwaysLocationGuide = false },
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                    )
+                    when (activeStartPermissionSheet) {
+                        DriverStartPermissionSheet.LocationForeground -> {
+                            DriverLocationForegroundGuideSheet(
+                                waitingForSettingsReturn = waitingForSettingsReturn,
+                                onOpenSettings = {
+                                    waitingForSettingsReturn = true
+                                    openAppSettings(context)
+                                },
+                                onDismiss = { activeStartPermissionSheet = null },
+                                modifier = Modifier.align(Alignment.BottomCenter)
+                            )
+                        }
+                        DriverStartPermissionSheet.LocationAlways -> {
+                            DriverAlwaysLocationGuideSheet(
+                                waitingForSettingsReturn = waitingForSettingsReturn,
+                                onRequestPermission = { launcherRefs.requestBackgroundLocation() },
+                                onOpenSettings = {
+                                    waitingForSettingsReturn = true
+                                    openAppSettings(context)
+                                },
+                                onDismiss = { activeStartPermissionSheet = null },
+                                modifier = Modifier.align(Alignment.BottomCenter)
+                            )
+                        }
+                        DriverStartPermissionSheet.Motion -> {
+                            DriverMotionGuideSheet(
+                                waitingForSettingsReturn = waitingForMotionSettingsReturn,
+                                onOpenSettings = {
+                                    waitingForMotionSettingsReturn = true
+                                    openAppSettings(context)
+                                },
+                                onDismiss = { activeStartPermissionSheet = null },
+                                modifier = Modifier.align(Alignment.BottomCenter)
+                            )
+                        }
+                        null -> Unit
+                    }
                 }
             }
 
@@ -377,13 +445,20 @@ fun DriverHomeView(
                         selectedHours = selectedTripDurationHours,
                         onSelectedHoursChange = viewModel::selectTripDurationHours,
                         isLoading = uiState.isLoading,
-                        canStartTrip = canDriverStartTripNow(),
+                        canStartTrip = permissionScope.canDriverStartTripFully(),
                         onConfirm = {
-                            val allowed = canDriverStartTripNow()
-                            if (!allowed) {
-                                requestAlwaysLocationPermission()
+                            val gate = permissionScope.evaluateStartTripPermissionGate()
+                            if (gate == StartTripPermissionGate.Ready) {
+                                viewModel.confirmStartTrip(true)
+                            } else {
+                                permissionScope.setPendingTripAfterPermissions(true)
+                                viewModel.dismissTripDurationSheet()
+                                if (gate == StartTripPermissionGate.Motion) {
+                                    permissionScope.presentMotionStep()
+                                } else {
+                                    permissionScope.presentStartTripPermissionGate(gate)
+                                }
                             }
-                            viewModel.confirmStartTrip(allowed)
                         },
                         modifier = Modifier.align(Alignment.BottomCenter)
                     )
@@ -425,7 +500,6 @@ private fun updateDriverMotionMonitoring(
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
         !MotionActivityService.hasActivityRecognitionPermission(context)
     ) {
-        requestPermission(Manifest.permission.ACTIVITY_RECOGNITION)
         return
     }
     MotionActivityService.updateMonitoring(

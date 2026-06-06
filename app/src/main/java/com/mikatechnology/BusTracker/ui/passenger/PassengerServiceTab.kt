@@ -68,6 +68,7 @@ fun PassengerServiceTab(
     isHolidayModeActive: Boolean,
     holidayModeSubtitle: String,
     holidayModeDetailLine: String,
+    showComingBlockedWithoutPickupHint: Boolean = false,
     onAttendanceSelected: (AttendanceStatus) -> Unit,
     onOpenHolidayModePicker: () -> Unit,
     onOpenMap: () -> Unit,
@@ -234,6 +235,19 @@ fun PassengerServiceTab(
                     .fillMaxWidth(),
                 textAlign = TextAlign.Center
             )
+
+            if (showComingBlockedWithoutPickupHint) {
+                Text(
+                    text = L10n.comingBlockedWithoutPickup,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ErrorRed,
+                    modifier = Modifier
+                        .padding(top = 12.dp)
+                        .fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
 
         HolidayModeServiceCard(

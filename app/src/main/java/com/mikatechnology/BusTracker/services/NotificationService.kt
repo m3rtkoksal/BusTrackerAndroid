@@ -24,29 +24,45 @@ object NotificationService {
         Prompted,
         NeedsSettings
     }
-    /** Genel servis bildirimleri (varsayılan sistem sesi). */
-    const val CHANNEL_TRIP = "bustracker_trip"
+    /** Servis başladı ve hatırlatmalar — özel ses (approach_tink). */
+    const val CHANNEL_TRIP = "bustracker_trip_v2"
+
+    private const val CHANNEL_TRIP_LEGACY = "bustracker_trip"
 
     /** Servis çağrısı — korna sesi (sürücü biniş noktana yaklaşınca). */
     const val CHANNEL_APPROACHING = "bustracker_approaching"
+
+    private const val PREFS_NAME = "bustracker_notification_prefs"
+    private const val KEY_POST_NOTIFICATIONS_REQUESTED = "post_notifications_requested"
 
     fun createNotificationChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(android.app.NotificationManager::class.java)
             ?: return
 
+        manager.deleteNotificationChannel(CHANNEL_TRIP_LEGACY)
+
+        val tripSound = Uri.parse(
+            "android.resource://${context.packageName}/${R.raw.approach_tink}"
+        )
         val tripChannel = android.app.NotificationChannel(
             CHANNEL_TRIP,
             "Servis bildirimleri",
             android.app.NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Servis başladı ve hatırlatmalar"
+            setSound(
+                tripSound,
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            enableVibration(true)
         }
         manager.createNotificationChannel(tripChannel)
 
-        val approachSound = Uri.parse(
-            "android.resource://${context.packageName}/${R.raw.approach_tink}"
-        )
+        val approachSound = tripSound
         val approachChannel = android.app.NotificationChannel(
             CHANNEL_APPROACHING,
             "Servis çağrısı",
@@ -78,6 +94,23 @@ object NotificationService {
             context,
             Manifest.permission.POST_NOTIFICATIONS
         ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    fun markNotificationPermissionRequested(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_POST_NOTIFICATIONS_REQUESTED, true)
+            .apply()
+    }
+
+    /** Sistem diyaloğu bir kez gösterildiyse ve izin hâlâ yoksa → ayarlar bottom sheet (iOS sürücü parity). */
+    fun shouldShowNotificationSettingsGuide(context: Context): Boolean {
+        if (hasNotificationPermission(context)) return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return !NotificationManagerCompat.from(context).areNotificationsEnabled()
+        }
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_POST_NOTIFICATIONS_REQUESTED, false)
     }
 
     fun openAppSettings(context: Context) {
@@ -143,6 +176,13 @@ object NotificationService {
 
     suspend fun syncTokenForProfile(context: Context, groupID: String, memberID: String) {
         createNotificationChannels(context)
+        if (!hasNotificationPermission(context)) return
         fetchAndSaveToken(groupID, memberID)
+    }
+
+    /** Yolcu aksiyonu öncesi: izin varsa token senkronize eder; yoksa çağıran launcher ile istemeli. */
+    fun shouldPromptPassengerNotification(context: Context): Boolean {
+        createNotificationChannels(context)
+        return !hasNotificationPermission(context)
     }
 }

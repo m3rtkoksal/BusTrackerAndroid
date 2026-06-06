@@ -8,7 +8,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.mikatechnology.BusTracker.data.model.MemberRole
-import com.mikatechnology.BusTracker.ui.NotificationPermissionHandler
 
 object RegistrationRoutes {
     const val RoleSelection = "role_selection"
@@ -23,8 +22,6 @@ fun RegistrationFlowScreen(
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
-
-    NotificationPermissionHandler(enabled = true, profile = null)
 
     NavHost(
         navController = navController,

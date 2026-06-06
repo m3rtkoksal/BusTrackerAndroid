@@ -1,8 +1,5 @@
 package com.mikatechnology.BusTracker.ui
 
-import android.Manifest
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -21,8 +18,6 @@ import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
-import com.mikatechnology.BusTracker.services.LocationPermissionRole
-import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.localization.LanguageManager
 import com.mikatechnology.BusTracker.ui.driver.DriverHomeView
 import com.mikatechnology.BusTracker.ui.passenger.PassengerHomeView
@@ -37,16 +32,6 @@ fun AppRoot() {
     val appLanguage by LanguageManager.language.collectAsStateWithLifecycle()
 
     var showLogin by remember { mutableStateOf(false) }
-
-    val foregroundLocationLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ ->
-        val role = when (profile?.role) {
-            MemberRole.Driver -> LocationPermissionRole.Driver
-            else -> LocationPermissionRole.Passenger
-        }
-        LocationTracker.refreshAuthorizationStatus(context, role)
-    }
 
     LaunchedEffect(Unit) {
         UserSessionRepository.load(context)
@@ -67,28 +52,10 @@ fun AppRoot() {
         }
     }
 
-    LaunchedEffect(isSessionLoaded, profile?.userID) {
-        if (!isSessionLoaded) return@LaunchedEffect
-        LocationTracker.initialize(context)
-        if (!LocationTracker.hasFineLocation(context)) {
-            foregroundLocationLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        } else {
-            val role = when (profile?.role) {
-                MemberRole.Driver -> LocationPermissionRole.Driver
-                else -> LocationPermissionRole.Passenger
-            }
-            LocationTracker.refreshAuthorizationStatus(context, role)
-        }
-    }
-
-    NotificationPermissionHandler(
+    AppPermissionsHandler(
         enabled = isSessionLoaded && profile != null,
-        profile = profile
+        profile = profile,
+        notificationsOnly = profile?.role == MemberRole.Driver
     )
 
     if (!isSessionLoaded) {

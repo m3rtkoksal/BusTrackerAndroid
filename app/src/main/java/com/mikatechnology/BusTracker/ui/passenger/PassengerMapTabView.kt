@@ -125,7 +125,12 @@ fun PassengerMapTabView(
                 centerOnCoordinate(latLng)
             }
         } else {
-            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            val status = LocationTracker.authorizationStatus.value
+            if (status == com.mikatechnology.BusTracker.services.LocationAuthStatus.NotDetermined) {
+                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            } else {
+                pendingGpsFocus = null
+            }
         }
     }
 

@@ -7,7 +7,6 @@ import com.mikatechnology.BusTracker.base.BaseViewModel
 import com.mikatechnology.BusTracker.base.NavigationBarStyle
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.isHolidayModeActive
-import com.mikatechnology.BusTracker.data.model.MorningPickup
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
@@ -70,21 +69,45 @@ class PassengerHomeViewModel(
         loadSavedPickup()
     }
 
-    fun onTripActiveChanged(wasActive: Boolean, isActive: Boolean, attendance: AttendanceStatus) {
+    fun onTripActiveChanged(
+        wasActive: Boolean,
+        isActive: Boolean,
+        attendance: AttendanceStatus,
+        holidayModeActive: Boolean
+    ) {
         if (!isActive) {
             didPromptAttendanceThisTrip = false
             _showTripStartedAttendanceSheet.value = false
             return
         }
         if (isActive && !wasActive) {
-            presentTripAttendanceSheetIfNeeded(isTripActive = true, attendance = attendance)
+            syncTripAttendanceState(
+                isTripActive = true,
+                holidayModeActive = holidayModeActive,
+                rawAttendance = attendance
+            )
         }
     }
 
-    fun presentTripAttendanceSheetIfNeeded(isTripActive: Boolean, attendance: AttendanceStatus) {
-        if (!isTripActive || attendance != AttendanceStatus.Unknown || didPromptAttendanceThisTrip) return
+    fun presentTripAttendanceSheetIfNeeded(
+        isTripActive: Boolean,
+        attendance: AttendanceStatus,
+        holidayModeActive: Boolean
+    ) {
+        if (!isTripActive || holidayModeActive || attendance != AttendanceStatus.Unknown || didPromptAttendanceThisTrip) {
+            return
+        }
         didPromptAttendanceThisTrip = true
         _showTripStartedAttendanceSheet.value = true
+    }
+
+    fun syncTripAttendanceState(
+        isTripActive: Boolean,
+        holidayModeActive: Boolean,
+        rawAttendance: AttendanceStatus
+    ) {
+        if (!isTripActive) return
+        presentTripAttendanceSheetIfNeeded(isTripActive, rawAttendance, holidayModeActive)
     }
 
     fun dismissTripAttendanceSheet() {
@@ -186,7 +209,14 @@ class PassengerHomeViewModel(
     private fun resolvedGroupID(): String =
         profile.groupID.ifBlank { profile.primaryGroupID }
 
+    fun showPickupCoordinateError() {
+        showError(L10n.markPickupOnMapShort)
+    }
+
     fun updateAttendance(status: AttendanceStatus, context: Context) {
+        if (status == AttendanceStatus.Coming && store.morningPickup(profile.memberID) == null) {
+            return
+        }
         viewModelScope.launch {
             _pendingAttendanceStatus.value = status
             _isUpdatingAttendance.value = true
