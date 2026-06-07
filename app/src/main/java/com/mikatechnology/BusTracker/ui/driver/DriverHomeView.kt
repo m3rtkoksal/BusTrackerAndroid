@@ -70,7 +70,7 @@ import com.mikatechnology.BusTracker.ui.shared.RoleNavBar
 import com.mikatechnology.BusTracker.ui.settings.LanguagePickerOverlay
 import com.mikatechnology.BusTracker.ui.settings.LanguageSettingsRow
 import com.mikatechnology.BusTracker.ui.settings.SettingsCardShape
-import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountFooter
+import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountLink
 import com.mikatechnology.BusTracker.ui.settings.SettingsSignOutRow
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 import com.mikatechnology.BusTracker.util.openAppSettings
@@ -558,40 +558,38 @@ fun DriverSettingsTab(
 ) {
     val context = LocalContext.current
 
-    Column(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (profile.groupCode.isNotBlank()) {
-                com.mikatechnology.BusTracker.ui.settings.SettingsServiceCodeRow(
-                    code = profile.groupCode,
-                    onClick = {
-                        val copied = com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.copy(
-                            context,
-                            profile.groupCode
-                        )
-                        com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.showResult(context, copied)
-                    }
-                )
-            }
-            com.mikatechnology.BusTracker.ui.settings.SettingsEditableNameRow(
-                title = L10n.settingsYourName,
-                value = displayName,
-                onSave = onUpdateName
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        if (profile.groupCode.isNotBlank()) {
+            com.mikatechnology.BusTracker.ui.settings.SettingsServiceCodeRow(
+                code = profile.groupCode,
+                onClick = {
+                    val copied = com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.copy(
+                        context,
+                        profile.groupCode
+                    )
+                    com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.showResult(context, copied)
+                }
             )
-
-            LanguageSettingsRow(
-                currentLanguage = currentLanguage,
-                onClick = onOpenLanguagePicker
-            )
-
-            SettingsSignOutRow(onClick = onSignOut)
         }
+        com.mikatechnology.BusTracker.ui.settings.SettingsEditableNameRow(
+            title = L10n.settingsYourName,
+            value = displayName,
+            onSave = onUpdateName
+        )
 
-        SettingsDeleteAccountFooter(onClick = onDeleteAccount)
+        LanguageSettingsRow(
+            currentLanguage = currentLanguage,
+            onClick = onOpenLanguagePicker
+        )
+
+        SettingsSignOutRow(onClick = onSignOut)
+
+        SettingsDeleteAccountLink(onClick = onDeleteAccount)
     }
 }

@@ -14,7 +14,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,45 +62,33 @@ fun SettingsSignOutRow(
 }
 
 @Composable
-fun SettingsDeleteAccountFooter(
+fun SettingsDeleteAccountLink(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(NeonTheme.Background)
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(NeonTheme.Outline.copy(alpha = 0.25f))
+                .background(NeonTheme.Outline.copy(alpha = 0.2f))
         )
 
-        Row(
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = L10n.deleteAccount,
+            color = NeonTheme.Error.copy(alpha = 0.8f),
+            fontWeight = FontWeight.Medium,
+            fontSize = 12.sp,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 12.dp)
-                .clip(SettingsCardShape)
-                .background(NeonTheme.Error)
                 .clickable(onClick = onClick)
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = null,
-                tint = androidx.compose.ui.graphics.Color.White
-            )
-            Text(
-                text = L10n.deleteAccount.uppercase(),
-                color = androidx.compose.ui.graphics.Color.White,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
-                letterSpacing = 1.sp,
-                modifier = Modifier.padding(start = 12.dp)
-            )
-        }
+                .padding(8.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }

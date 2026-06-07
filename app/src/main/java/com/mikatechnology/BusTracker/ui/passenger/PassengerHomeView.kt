@@ -292,8 +292,15 @@ fun PassengerHomeView(
     }
 
     var wasTripActive by remember { mutableStateOf(isTripActive) }
+    var previousTab by remember { mutableStateOf(selectedTab) }
 
     LaunchedEffect(selectedTab) {
+        // Harita tab'dan çıkınca kaydedilmemiş pin'i temizle
+        if (previousTab == PassengerHomeTab.Map && selectedTab != PassengerHomeTab.Map) {
+            viewModel.clearDraftCoordinate()
+        }
+        previousTab = selectedTab
+
         if (selectedTab == PassengerHomeTab.Map) {
             PassengerActionPermissionManager.promptMapTabLocationIfNeeded(context) {
                 mapLocationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)

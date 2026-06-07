@@ -203,12 +203,9 @@ class PassengerHomeViewModel(
     }
 
     private fun loadSavedPickup() {
-        val saved = store.morningPickup(profile.memberID)
-        if (_draftPickupCoordinate.value == null && saved != null) {
-            _draftPickupCoordinate.value = com.google.android.gms.maps.model.LatLng(
-                saved.latitude, saved.longitude
-            )
-        }
+        // This function is kept for compatibility but no longer sets draftPickupCoordinate.
+        // The saved pickup is shown directly from savedMorningPickup,
+        // draftPickupCoordinate is only for NEW locations selected by the user.
     }
 
     fun requestSignOut(onConfirm: () -> Unit) {
@@ -415,6 +412,7 @@ class PassengerHomeViewModel(
                 )
                 BusTrackerAnalytics.pickupSaved()
                 _showTripStartedAttendanceSheet.value = false
+                _draftPickupCoordinate.value = null
                 showSuccess(L10n.pickupSavedComing)
             } catch (e: Exception) {
                 showError(e.message ?: L10n.saveFailed)

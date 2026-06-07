@@ -28,7 +28,7 @@ import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.ui.settings.CopyServiceCode
 import com.mikatechnology.BusTracker.ui.settings.SettingsCardShape
 import com.mikatechnology.BusTracker.ui.settings.SettingsServiceCodeRow
-import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountFooter
+import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountLink
 import com.mikatechnology.BusTracker.ui.settings.SettingsEditableNameRow
 import com.mikatechnology.BusTracker.ui.settings.SettingsNavigationRow
 import com.mikatechnology.BusTracker.ui.settings.SettingsSignOutRow
@@ -50,44 +50,42 @@ fun PassengerSettingsTab(
 ) {
     val context = LocalContext.current
 
-    Column(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (profile.groupCode.isNotBlank()) {
-                SettingsServiceCodeRow(
-                    code = profile.groupCode,
-                    onClick = {
-                        val copied = CopyServiceCode.copy(context, profile.groupCode)
-                        CopyServiceCode.showResult(context, copied)
-                    }
-                )
-            }
-
-            SettingsEditableNameRow(
-                title = L10n.settingsYourName,
-                value = displayName,
-                onSave = onUpdateName
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        if (profile.groupCode.isNotBlank()) {
+            SettingsServiceCodeRow(
+                code = profile.groupCode,
+                onClick = {
+                    val copied = CopyServiceCode.copy(context, profile.groupCode)
+                    CopyServiceCode.showResult(context, copied)
+                }
             )
-
-            SettingsNavigationRow(
-                title = L10n.myShuttles,
-                value = profile.groupName,
-                onClick = onOpenMyServices
-            )
-
-            LanguageSettingsRow(
-                currentLanguage = currentLanguage,
-                onClick = onOpenLanguagePicker
-            )
-
-            SettingsSignOutRow(onClick = onSignOut)
         }
 
-        SettingsDeleteAccountFooter(onClick = onDeleteAccount)
+        SettingsEditableNameRow(
+            title = L10n.settingsYourName,
+            value = displayName,
+            onSave = onUpdateName
+        )
+
+        SettingsNavigationRow(
+            title = L10n.myShuttles,
+            value = profile.groupName,
+            onClick = onOpenMyServices
+        )
+
+        LanguageSettingsRow(
+            currentLanguage = currentLanguage,
+            onClick = onOpenLanguagePicker
+        )
+
+        SettingsSignOutRow(onClick = onSignOut)
+
+        SettingsDeleteAccountLink(onClick = onDeleteAccount)
     }
 }
