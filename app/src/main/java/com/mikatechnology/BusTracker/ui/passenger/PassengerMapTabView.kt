@@ -258,42 +258,45 @@ fun PassengerMapTabView(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp)
-        ) {
-            Column(
+        // Kayıtlı biniş noktası yoksa VEYA kullanıcı haritaya tıklayıp yeni konum seçtiyse göster
+        if (savedPickup == null || draftCoordinate != null) {
+            Box(
                 modifier = Modifier
+                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .clip(MapUiShape)
-                    .background(NeonTheme.SurfaceContainer.copy(alpha = 0.82f))
-                    .background(Color.Black.copy(alpha = 0.14f))
-                    .border(
-                        width = 1.dp,
-                        color = NeonTheme.Secondary.copy(alpha = 0.22f),
-                        shape = MapUiShape
-                    )
-                    .padding(horizontal = 12.dp)
-                    .padding(top = 16.dp, bottom = 14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp)
             ) {
-                Text(
-                    text = L10n.tapMapToSelectPickup,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.5.sp,
-                    color = NeonTheme.OnSurfaceVariant,
-                    lineHeight = 12.sp
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MapUiShape)
+                        .background(NeonTheme.SurfaceContainer.copy(alpha = 0.82f))
+                        .background(Color.Black.copy(alpha = 0.14f))
+                        .border(
+                            width = 1.dp,
+                            color = NeonTheme.Secondary.copy(alpha = 0.22f),
+                            shape = MapUiShape
+                        )
+                        .padding(horizontal = 12.dp)
+                        .padding(top = 16.dp, bottom = 14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = L10n.tapMapToSelectPickup,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.5.sp,
+                        color = NeonTheme.OnSurfaceVariant,
+                        lineHeight = 12.sp
+                    )
 
-                SavePickupButton(
-                    isSaving = isSaving,
-                    enabled = draftCoordinate != null,
-                    onClick = onSavePickup
-                )
+                    SavePickupButton(
+                        isSaving = isSaving,
+                        enabled = draftCoordinate != null,
+                        onClick = onSavePickup
+                    )
+                }
             }
         }
     }

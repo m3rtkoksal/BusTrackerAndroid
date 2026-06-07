@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.MorningPickup
+import com.mikatechnology.BusTracker.data.model.UpcomingService
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.PassengerWeatherCardModel
@@ -54,13 +56,17 @@ private val WarningColor = Color(0xFFFFE04A)
 private val ErrorRed = Color(0xFFFF4444)
 private val ServiceCardShape = RectangleShape
 
+/** Her servis için attendance durumu */
+data class ServiceAttendanceState(
+    val service: UpcomingService,
+    val rawAttendance: AttendanceStatus,
+    val effectiveAttendance: AttendanceStatus
+)
+
 @Composable
 fun PassengerServiceTab(
     profile: UserProfile,
-    isTripActive: Boolean,
-    myAttendance: AttendanceStatus,
-    myEffectiveAttendance: AttendanceStatus,
-    attendanceQuestion: String,
+    nextTwoServices: List<ServiceAttendanceState>,
     savedMorningPickup: MorningPickup?,
     draftLatitude: Double?,
     draftLongitude: Double?,
@@ -69,7 +75,7 @@ fun PassengerServiceTab(
     holidayModeSubtitle: String,
     holidayModeDetailLine: String,
     showComingBlockedWithoutPickupHint: Boolean = false,
-    onAttendanceSelected: (AttendanceStatus) -> Unit,
+    onAttendanceSelected: (UpcomingService, AttendanceStatus) -> Unit,
     onOpenHolidayModePicker: () -> Unit,
     onOpenMap: () -> Unit,
     modifier: Modifier = Modifier
@@ -113,116 +119,15 @@ fun PassengerServiceTab(
             .padding(top = 24.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        Column {
-            Text(
-                text = profile.groupName.uppercase(),
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = NeonTheme.OnSurface
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(if (isTripActive) NeonTheme.Secondary else NeonTheme.Outline)
-                        .shadow(
-                            elevation = if (isTripActive) 4.dp else 0.dp,
-                            spotColor = if (isTripActive) NeonTheme.Secondary.copy(alpha = 0.8f) else Color.Transparent
-                        )
-                )
-                Text(
-                    text = if (isTripActive) L10n.waitingForDriverLocation else L10n.shuttleNotStarted,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isTripActive) NeonTheme.Secondary else NeonTheme.OnSurfaceVariant
-                )
-            }
-        }
-
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(ServiceCardShape)
-                .background(NeonTheme.SurfaceContainer)
-                .border(
-                    width = 1.dp,
-                    color = NeonTheme.Secondary.copy(alpha = 0.22f),
-                    shape = ServiceCardShape
-                )
-                .padding(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = attendanceQuestion,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 2.sp,
-                color = NeonTheme.OnSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            val showChoice = myAttendance != AttendanceStatus.Unknown ||
-                (isHolidayModeActive && myEffectiveAttendance != AttendanceStatus.Unknown)
-            val choiceStatus = if (myAttendance != AttendanceStatus.Unknown) {
-                myAttendance
-            } else {
-                myEffectiveAttendance
-            }
-            if (showChoice) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = if (choiceStatus == AttendanceStatus.Coming) Icons.Default.CheckCircle else Icons.Default.Close,
-                        contentDescription = null,
-                        tint = if (choiceStatus == AttendanceStatus.Coming) NeonTheme.Secondary else ErrorRed
-                    )
-                    Text(
-                        text = L10n.yourChoice(choiceStatus.selfChoiceLabel),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = NeonTheme.OnSurface,
-                        modifier = Modifier.padding(start = 6.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            val comingSelected = myAttendance == AttendanceStatus.Coming
-            val notComingSelected = myAttendance == AttendanceStatus.NotComing ||
-                (isHolidayModeActive &&
-                    myAttendance == AttendanceStatus.Unknown &&
-                    myEffectiveAttendance == AttendanceStatus.NotComing)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                AttendanceButton(
-                    title = L10n.attendanceComingSelf.uppercase(),
-                    icon = Icons.Default.CheckCircle,
-                    accent = NeonTheme.Secondary,
-                    isSelected = comingSelected,
-                    isLoading = isUpdatingAttendance && !comingSelected,
-                    enabled = true,
-                    onClick = { onAttendanceSelected(AttendanceStatus.Coming) },
-                    modifier = Modifier.weight(1f)
-                )
-
-                AttendanceButton(
-                    title = L10n.attendanceNotComingSelf.uppercase(),
-                    icon = Icons.Default.Close,
-                    accent = ErrorRed,
-                    isSelected = notComingSelected,
-                    isLoading = isUpdatingAttendance && !notComingSelected,
-                    enabled = true,
-                    onClick = { onAttendanceSelected(AttendanceStatus.NotComing) },
-                    modifier = Modifier.weight(1f)
+            nextTwoServices.forEach { state ->
+                ServiceAttendanceCard(
+                    state = state,
+                    isHolidayModeActive = isHolidayModeActive,
+                    isUpdatingAttendance = isUpdatingAttendance,
+                    onAttendanceSelected = { status -> onAttendanceSelected(state.service, status) }
                 )
             }
 
@@ -230,9 +135,7 @@ fun PassengerServiceTab(
                 text = if (isHolidayModeActive) L10n.attendanceHolidayHint else L10n.attendanceHint,
                 fontSize = 10.sp,
                 color = NeonTheme.Outline,
-                modifier = Modifier
-                    .padding(top = 12.dp)
-                    .fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
             )
 
@@ -242,9 +145,7 @@ fun PassengerServiceTab(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = ErrorRed,
-                    modifier = Modifier
-                        .padding(top = 12.dp)
-                        .fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
                 )
             }
@@ -340,6 +241,121 @@ fun PassengerServiceTab(
             isLoading = weatherLatitude != null && weatherLongitude != null && pickupWeatherLoading,
             emptyMessage = if (weatherLatitude == null || weatherLongitude == null) L10n.weatherNeedsPickup else null
         )
+    }
+}
+
+@Composable
+private fun ServiceAttendanceCard(
+    state: ServiceAttendanceState,
+    isHolidayModeActive: Boolean,
+    isUpdatingAttendance: Boolean,
+    onAttendanceSelected: (AttendanceStatus) -> Unit
+) {
+    val showChoice = state.rawAttendance != AttendanceStatus.Unknown ||
+        (isHolidayModeActive && state.effectiveAttendance != AttendanceStatus.Unknown)
+    val choiceStatus = if (state.rawAttendance != AttendanceStatus.Unknown) {
+        state.rawAttendance
+    } else {
+        state.effectiveAttendance
+    }
+
+    val comingSelected = state.rawAttendance == AttendanceStatus.Coming
+    val notComingSelected = state.rawAttendance == AttendanceStatus.NotComing ||
+        (isHolidayModeActive &&
+            state.rawAttendance == AttendanceStatus.Unknown &&
+            state.effectiveAttendance == AttendanceStatus.NotComing)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(ServiceCardShape)
+            .background(NeonTheme.SurfaceContainer.copy(alpha = 0.6f))
+            .border(
+                width = 1.dp,
+                color = NeonTheme.Outline.copy(alpha = 0.15f),
+                shape = ServiceCardShape
+            )
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = state.service.session.icon,
+                    fontSize = 16.sp
+                )
+                Column {
+                    Text(
+                        text = state.service.relativeDisplayName().uppercase(),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        color = NeonTheme.OnSurface
+                    )
+                    Text(
+                        text = state.service.displayDate,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = NeonTheme.OnSurfaceVariant
+                    )
+                }
+            }
+
+            if (showChoice) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (choiceStatus == AttendanceStatus.Coming) Icons.Default.CheckCircle else Icons.Default.Close,
+                        contentDescription = null,
+                        tint = if (choiceStatus == AttendanceStatus.Coming) NeonTheme.Secondary else ErrorRed,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Text(
+                        text = choiceStatus.selfChoiceLabel,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (choiceStatus == AttendanceStatus.Coming) NeonTheme.Secondary else ErrorRed
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AttendanceButton(
+                title = L10n.attendanceComingSelf.uppercase(),
+                icon = Icons.Default.CheckCircle,
+                accent = NeonTheme.Secondary,
+                isSelected = comingSelected,
+                isLoading = isUpdatingAttendance && !comingSelected,
+                enabled = true,
+                onClick = { onAttendanceSelected(AttendanceStatus.Coming) },
+                modifier = Modifier.weight(1f)
+            )
+
+            AttendanceButton(
+                title = L10n.attendanceNotComingSelf.uppercase(),
+                icon = Icons.Default.Close,
+                accent = ErrorRed,
+                isSelected = notComingSelected,
+                isLoading = isUpdatingAttendance && !notComingSelected,
+                enabled = true,
+                onClick = { onAttendanceSelected(AttendanceStatus.NotComing) },
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 

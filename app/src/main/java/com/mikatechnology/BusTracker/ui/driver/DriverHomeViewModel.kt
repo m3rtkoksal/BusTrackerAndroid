@@ -186,6 +186,22 @@ class DriverHomeViewModel(
         }
     }
 
+    fun updateName(newName: String) {
+        viewModelScope.launch {
+            try {
+                val groupID = profile.primaryGroupID.ifBlank { profile.groupID }
+                if (groupID.isBlank()) {
+                    showError(L10n.shuttleInfoNotFound)
+                    return@launch
+                }
+                shuttleStore.updateMemberName(groupID, profile.memberID, newName)
+                showSuccess(L10n.nameUpdated)
+            } catch (e: Exception) {
+                showError(e.message ?: L10n.updateFailed)
+            }
+        }
+    }
+
     fun deleteAccount(context: Context, googleReauthData: Intent?) {
         viewModelScope.launch {
             if (googleReauthData == null) {

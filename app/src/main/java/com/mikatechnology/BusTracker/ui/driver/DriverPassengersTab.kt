@@ -422,14 +422,38 @@ private fun DriverEmptyPassengersState() {
 
 @Composable
 private fun PassengerListSection(passengers: List<ShuttleMember>) {
+    val currentService = remember { ShuttleStore.shared.currentDriverService }
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = "YOLCU LİSTESİ",
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium,
-            letterSpacing = 2.sp,
-            color = NeonTheme.OnSurfaceVariant
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "YOLCU LİSTESİ",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 2.sp,
+                color = NeonTheme.OnSurfaceVariant
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = currentService.session.icon,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = currentService.relativeDisplayName().uppercase(),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 1.sp,
+                    color = NeonTheme.Primary
+                )
+            }
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()

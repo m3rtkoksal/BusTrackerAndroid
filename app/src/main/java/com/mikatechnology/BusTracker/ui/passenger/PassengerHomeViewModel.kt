@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.mikatechnology.BusTracker.base.BaseViewModel
 import com.mikatechnology.BusTracker.base.NavigationBarStyle
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
+import com.mikatechnology.BusTracker.data.model.HolidayMode
 import com.mikatechnology.BusTracker.data.model.isHolidayModeActive
+import com.mikatechnology.BusTracker.data.model.ServiceSchedule
+import com.mikatechnology.BusTracker.data.model.UpcomingService
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
@@ -47,6 +50,83 @@ class PassengerHomeViewModel(
     val draftPickupCoordinate: StateFlow<com.google.android.gms.maps.model.LatLng?> = _draftPickupCoordinate.asStateFlow()
 
     val userProfile: UserProfile get() = profile
+
+    // MARK: - Computed Properties
+
+    val members: StateFlow<List<com.mikatechnology.BusTracker.data.model.ShuttleMember>> = store.members
+
+    val myMember: com.mikatechnology.BusTracker.data.model.ShuttleMember?
+        get() = store.members.value.firstOrNull { it.id == profile.memberID }
+
+    val isHolidayModeActive: Boolean
+        get() = myMember?.isHolidayModeActive() == true
+
+    val nextTwoServices: List<UpcomingService>
+        get() = ServiceSchedule.nextTwoServices()
+
+    val currentDriverService: UpcomingService
+        get() = ServiceSchedule.currentDriverSession()
+
+    fun rawAttendance(service: UpcomingService): AttendanceStatus =
+        store.rawAttendanceFor(profile.memberID, service.dateKey)
+
+    fun effectiveAttendance(service: UpcomingService): AttendanceStatus =
+        store.effectiveAttendanceFor(profile.memberID, service.dateKey)
+
+    val currentServiceRawAttendance: AttendanceStatus
+        get() = rawAttendance(currentDriverService)
+
+    val currentServiceEffectiveAttendance: AttendanceStatus
+        get() = effectiveAttendance(currentDriverService)
+
+    fun isComingSelected(service: UpcomingService): Boolean =
+        rawAttendance(service) == AttendanceStatus.Coming
+
+    fun isNotComingSelected(service: UpcomingService): Boolean {
+        val raw = rawAttendance(service)
+        val effective = effectiveAttendance(service)
+        return raw == AttendanceStatus.NotComing ||
+            (isHolidayModeActive && raw == AttendanceStatus.Unknown && effective == AttendanceStatus.NotComing)
+    }
+
+    val savedMorningPickup: com.mikatechnology.BusTracker.data.model.MorningPickup?
+        get() = store.morningPickup(profile.memberID)
+
+    val hasSavedMorningPickup: Boolean
+        get() = savedMorningPickup != null
+
+    val isBoardedToday: Boolean
+        get() = myMember?.isBoardedToday == true
+
+    val holidayModeSubtitle: String
+        get() = if (isHolidayModeActive) {
+            myMember?.holidayModeEndDate
+                ?.let { HolidayMode.displayDate(it) }
+                ?.let { L10n.holidayModeUntil(it) }
+                ?: L10n.holidayModeOff
+        } else {
+            L10n.holidayModeOff
+        }
+
+    val holidayModeDetailLine: String
+        get() = if (isHolidayModeActive) {
+            myMember?.holidayModeEndDate
+                ?.let { HolidayMode.displayDate(it) }
+                ?.let { L10n.holidayModeCardDetailActive(it) }
+                ?: L10n.holidayModeCardDetailOff
+        } else {
+            L10n.holidayModeCardDetailOff
+        }
+
+    /** Sonraki 2 servis için attendance state listesi */
+    fun getNextTwoServicesData(): List<ServiceAttendanceState> =
+        nextTwoServices.map { service ->
+            ServiceAttendanceState(
+                service = service,
+                rawAttendance = rawAttendance(service),
+                effectiveAttendance = effectiveAttendance(service)
+            )
+        }
 
     init {
         configureScreen(
@@ -213,7 +293,7 @@ class PassengerHomeViewModel(
         showError(L10n.markPickupOnMapShort)
     }
 
-    fun updateAttendance(status: AttendanceStatus, context: Context) {
+    fun updateAttendance(status: AttendanceStatus, dateKey: String, context: Context) {
         if (status == AttendanceStatus.Coming && store.morningPickup(profile.memberID) == null) {
             return
         }
@@ -221,10 +301,6 @@ class PassengerHomeViewModel(
             _pendingAttendanceStatus.value = status
             _isUpdatingAttendance.value = true
             try {
-                val holidayActive = store.members.value
-                    .firstOrNull { it.id == profile.memberID }
-                    ?.isHolidayModeActive() == true
-                val dateKey = store.planningAttendanceDateKey(holidayActive)
                 store.setAttendance(
                     groupID = resolvedGroupID(),
                     memberID = profile.memberID,
@@ -289,6 +365,22 @@ class PassengerHomeViewModel(
         }
     }
 
+    fun updateName(newName: String) {
+        viewModelScope.launch {
+            try {
+                val groupID = resolvedGroupID()
+                if (groupID.isBlank()) {
+                    showError(L10n.shuttleInfoNotFound)
+                    return@launch
+                }
+                store.updateMemberName(groupID, profile.memberID, newName)
+                showSuccess(L10n.nameUpdated)
+            } catch (e: Exception) {
+                showError(e.message ?: L10n.updateFailed)
+            }
+        }
+    }
+
     fun saveMorningPickup(context: Context) {
         val coordinate = _draftPickupCoordinate.value ?: run {
             showError(L10n.markPickupOnMapShort)
@@ -306,21 +398,19 @@ class PassengerHomeViewModel(
                     latitude = coordinate.latitude,
                     longitude = coordinate.longitude
                 )
-                val holidayActive = store.members.value
-                    .firstOrNull { it.id == profile.memberID }
-                    ?.isHolidayModeActive() == true
-                val dateKey = store.planningAttendanceDateKey(holidayActive)
+                // Biniş noktası kaydedildiğinde en yakın servis için "geliyorum" kaydedilir
+                val nextService = ServiceSchedule.nextTwoServices().first()
                 store.setAttendance(
                     groupID = groupID,
                     memberID = profile.memberID,
                     name = profile.name,
                     status = AttendanceStatus.Coming,
-                    dateKey = dateKey
+                    dateKey = nextService.dateKey
                 )
                 AttendanceUsageTracker.record(
                     context = context,
                     memberID = profile.memberID,
-                    dateKey = dateKey,
+                    dateKey = nextService.dateKey,
                     status = AttendanceStatus.Coming
                 )
                 BusTrackerAnalytics.pickupSaved()

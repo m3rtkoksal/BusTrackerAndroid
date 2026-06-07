@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -212,34 +214,39 @@ fun LanguageSettingsRow(
             .background(NeonTheme.SurfaceContainer)
             .border(
                 width = 1.dp,
-                color = NeonTheme.Outline.copy(alpha = 0.35f),
+                color = NeonTheme.Outline.copy(alpha = 0.3f),
                 shape = SettingsCardShape
             )
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = L10n.settingsLanguage.uppercase(),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 1.5.sp,
-                color = NeonTheme.OnSurfaceVariant
-            )
+        Text(
+            text = L10n.settingsLanguage.uppercase(),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 1.5.sp,
+            color = NeonTheme.OnSurfaceVariant
+        )
+        
+        Spacer(modifier = Modifier.weight(1f))
+        
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             Text(
                 text = currentLanguage.displayName,
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = NeonTheme.OnSurface,
-                modifier = Modifier.padding(top = 4.dp)
+                color = NeonTheme.OnSurface
+            )
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = NeonTheme.OnSurfaceVariant
             )
         }
-        Icon(
-            imageVector = Icons.Default.Language,
-            contentDescription = null,
-            tint = NeonTheme.Secondary
-        )
     }
 }
 

@@ -50,6 +50,7 @@ object L10n {
     val enableAlwaysLocation get() = t("Her zaman iznini aç", "Enable always location")
     val waitingForDriverLocation get() = t("Sürücü konumu bekleniyor", "Waiting for driver location")
     val shuttleNotStarted get() = t("Servis henüz başlamadı", "Shuttle has not started yet")
+    val shuttleActive get() = t("Servis aktif", "Shuttle active")
     val waitingForLocation get() = t("Konum bekleniyor", "Waiting for location")
     val shuttleInactive get() = t("Servis pasif", "Shuttle inactive")
     val attendanceTodayQuestion get() = t("BUGÜN GELECEK MİSİNİZ?", "ARE YOU COMING TODAY?")
@@ -90,6 +91,7 @@ object L10n {
     val holidayModeEndEarly get() = t("Tatili bitir", "End holiday now")
     val holidayModeSaved get() = t("Tatil modu kaydedildi.", "Holiday mode saved.")
     val holidayModeEnded get() = t("Tatil modu kapatıldı.", "Holiday mode turned off.")
+    val nameUpdated get() = t("İsim güncellendi.", "Name updated.")
     val sparseModeSuggestionTitle get() = t(
         "Servisi az kullanıyor musunuz?",
         "Rarely use the shuttle?"
@@ -106,7 +108,7 @@ object L10n {
     val sparseModeSheetOk get() = t("Tamam", "OK")
     val signOut get() = t("Çıkış Yap", "Sign Out")
     val deleteAccount get() = t("Hesabı Sil", "Delete Account")
-    val inviteLinkShare get() = t("DAVET LİNKİ PAYLAŞ", "SHARE INVITE LINK")
+    val inviteLinkTitle get() = t("DAVET LİNKİ", "INVITE LINK")
     val deleteAccountPermanently get() = t("Hesabı Kalıcı Olarak Sil", "Delete Account Permanently")
     val accountDeletedSuccess get() = t("Hesabınız başarıyla silindi.", "Your account was deleted successfully.")
     val accountDeleteFailed get() = t("Hesap silinirken bir hata oluştu. Lütfen tekrar deneyin.", "Something went wrong while deleting your account. Please try again.")

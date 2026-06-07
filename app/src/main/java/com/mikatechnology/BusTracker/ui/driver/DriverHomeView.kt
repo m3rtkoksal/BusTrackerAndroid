@@ -336,8 +336,12 @@ fun DriverHomeView(
 
                         DriverHomeTab.Settings -> DriverSettingsTab(
                             profile = profile,
+                            displayName = members.firstOrNull { it.id == profile.memberID }?.name ?: profile.name,
                             currentLanguage = appLanguage,
                             onOpenLanguagePicker = { showLanguagePicker = true },
+                            onUpdateName = { newName ->
+                                viewModel.updateName(newName)
+                            },
                             onSignOut = {
                                 viewModel.requestSignOut {
                                     viewModel.signOut(context)
@@ -544,8 +548,10 @@ private fun DriverTopBar(
 @Composable
 fun DriverSettingsTab(
     profile: UserProfile,
+    displayName: String,
     currentLanguage: com.mikatechnology.BusTracker.localization.AppLanguage,
     onOpenLanguagePicker: () -> Unit,
+    onUpdateName: (String) -> Unit,
     onSignOut: () -> Unit,
     onDeleteAccount: () -> Unit,
     modifier: Modifier = Modifier
@@ -561,9 +567,8 @@ fun DriverSettingsTab(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             if (profile.groupCode.isNotBlank()) {
-                DriverSettingsRow(
-                    title = L10n.settingsServiceCode,
-                    value = profile.groupCode,
+                com.mikatechnology.BusTracker.ui.settings.SettingsServiceCodeRow(
+                    code = profile.groupCode,
                     onClick = {
                         val copied = com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.copy(
                             context,
@@ -573,10 +578,10 @@ fun DriverSettingsTab(
                     }
                 )
             }
-            DriverSettingsRow(
+            com.mikatechnology.BusTracker.ui.settings.SettingsEditableNameRow(
                 title = L10n.settingsYourName,
-                value = profile.name,
-                onClick = null
+                value = displayName,
+                onSave = onUpdateName
             )
 
             LanguageSettingsRow(
@@ -588,50 +593,5 @@ fun DriverSettingsTab(
         }
 
         SettingsDeleteAccountFooter(onClick = onDeleteAccount)
-    }
-}
-
-@Composable
-private fun DriverSettingsRow(
-    title: String,
-    value: String,
-    onClick: (() -> Unit)?
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(SettingsCardShape)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .background(NeonTheme.SurfaceContainer)
-            .border(
-                width = 1.dp,
-                color = NeonTheme.Outline.copy(alpha = 0.3f),
-                shape = SettingsCardShape
-            )
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title.uppercase(),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 1.5.sp,
-                color = NeonTheme.OnSurfaceVariant
-            )
-            Text(
-                text = value,
-                fontWeight = FontWeight.SemiBold,
-                color = NeonTheme.OnSurface,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-        if (onClick != null) {
-            Icon(
-                imageVector = Icons.Default.ContentCopy,
-                contentDescription = null,
-                tint = NeonTheme.Secondary
-            )
-        }
     }
 }

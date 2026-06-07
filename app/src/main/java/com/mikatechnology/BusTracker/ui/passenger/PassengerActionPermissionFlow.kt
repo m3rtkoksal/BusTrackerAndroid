@@ -21,7 +21,7 @@ enum class PassengerActionPermissionSheet {
 
 sealed class PassengerPendingGatedAction {
     data object SavePickup : PassengerPendingGatedAction()
-    data class UpdateAttendance(val status: AttendanceStatus) : PassengerPendingGatedAction()
+    data class UpdateAttendance(val status: AttendanceStatus, val dateKey: String) : PassengerPendingGatedAction()
 }
 
 /**

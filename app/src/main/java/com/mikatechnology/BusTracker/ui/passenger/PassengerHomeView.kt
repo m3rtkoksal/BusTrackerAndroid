@@ -51,6 +51,8 @@ import com.mikatechnology.BusTracker.auth.GoogleSignInHelper
 import com.mikatechnology.BusTracker.base.BaseViewShell
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.HolidayMode
+import com.mikatechnology.BusTracker.data.model.ServiceSchedule
+import com.mikatechnology.BusTracker.data.model.UpcomingService
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.model.effectiveAttendance
 import com.mikatechnology.BusTracker.data.model.isHolidayModeActive
@@ -141,7 +143,7 @@ fun PassengerHomeView(
         ) { action ->
             when (action) {
                 PassengerPendingGatedAction.SavePickup -> viewModel.saveMorningPickup(context)
-                is PassengerPendingGatedAction.UpdateAttendance -> viewModel.updateAttendance(action.status, context)
+                is PassengerPendingGatedAction.UpdateAttendance -> viewModel.updateAttendance(action.status, action.dateKey, context)
             }
         }
     }
@@ -157,7 +159,7 @@ fun PassengerHomeView(
         ) { action ->
             when (action) {
                 PassengerPendingGatedAction.SavePickup -> viewModel.saveMorningPickup(context)
-                is PassengerPendingGatedAction.UpdateAttendance -> viewModel.updateAttendance(action.status, context)
+                is PassengerPendingGatedAction.UpdateAttendance -> viewModel.updateAttendance(action.status, action.dateKey, context)
             }
         }
     }
@@ -183,7 +185,7 @@ fun PassengerHomeView(
         ) { action ->
             when (action) {
                 PassengerPendingGatedAction.SavePickup -> viewModel.saveMorningPickup(context)
-                is PassengerPendingGatedAction.UpdateAttendance -> viewModel.updateAttendance(action.status, context)
+                is PassengerPendingGatedAction.UpdateAttendance -> viewModel.updateAttendance(action.status, action.dateKey, context)
             }
         }
     }
@@ -220,52 +222,20 @@ fun PassengerHomeView(
     val isUpdatingAttendance by viewModel.isUpdatingAttendance.collectAsState()
     val isSavingPickup by viewModel.isSavingPickup.collectAsState()
     val draftCoordinate by viewModel.draftPickupCoordinate.collectAsState()
-
-    val myMember = members.firstOrNull { it.id == profile.memberID }
-    val isHolidayModeActive = myMember?.isHolidayModeActive() == true
-    val planningAttendanceDateKey = remember(isHolidayModeActive) {
-        ShuttleStore.shared.planningAttendanceDateKey(isHolidayModeActive)
-    }
     val attendanceRevision by ShuttleStore.shared.attendanceRevision.collectAsStateWithLifecycle()
-    val myRawAttendance = remember(attendanceRevision, planningAttendanceDateKey, profile.memberID) {
-        ShuttleStore.shared.rawAttendanceFor(profile.memberID, planningAttendanceDateKey)
-    }
-    val myEffectiveAttendance = remember(attendanceRevision, planningAttendanceDateKey, profile.memberID, isHolidayModeActive) {
-        ShuttleStore.shared.effectiveAttendanceFor(profile.memberID, planningAttendanceDateKey)
-    }
-    val isBoardedToday = myMember?.isBoardedToday == true
-    val holidayModeSubtitle = remember(myMember?.holidayModeEndDate, isHolidayModeActive) {
-        if (isHolidayModeActive) {
-            myMember?.holidayModeEndDate
-                ?.let { HolidayMode.displayDate(it) }
-                ?.let { L10n.holidayModeUntil(it) }
-                ?: L10n.holidayModeOff
-        } else {
-            L10n.holidayModeOff
-        }
-    }
-    val holidayModeDetailLine = remember(myMember?.holidayModeEndDate, isHolidayModeActive) {
-        if (isHolidayModeActive) {
-            myMember?.holidayModeEndDate
-                ?.let { HolidayMode.displayDate(it) }
-                ?.let { L10n.holidayModeCardDetailActive(it) }
-                ?: L10n.holidayModeCardDetailOff
-        } else {
-            L10n.holidayModeCardDetailOff
-        }
-    }
 
-    val attendanceQuestion = remember(isHolidayModeActive, planningAttendanceDateKey) {
-        if (isHolidayModeActive) {
-            val dateLabel = HolidayMode.displayDateLabel(planningAttendanceDateKey)
-            L10n.attendanceQuestionForDate("BUGÜN · $dateLabel")
-        } else {
-            L10n.attendanceTodayQuestion
-        }
-    }
-
+    // ViewModel'den computed properties
+    val myMember = viewModel.myMember
+    val isHolidayModeActive = viewModel.isHolidayModeActive
+    val nextTwoServicesData = remember(attendanceRevision) { viewModel.getNextTwoServicesData() }
+    val currentDriverService = viewModel.currentDriverService
+    val currentServiceRawAttendance = remember(attendanceRevision) { viewModel.currentServiceRawAttendance }
+    val currentServiceEffectiveAttendance = remember(attendanceRevision) { viewModel.currentServiceEffectiveAttendance }
+    val isBoardedToday = viewModel.isBoardedToday
+    val holidayModeSubtitle = viewModel.holidayModeSubtitle
+    val holidayModeDetailLine = viewModel.holidayModeDetailLine
     val savedPickup = remember(morningPickups, profile.memberID) {
-        ShuttleStore.shared.morningPickup(profile.memberID)
+        morningPickups.firstOrNull { it.memberID == profile.memberID }
     }
     val hasSavedMorningPickup = savedPickup != null
 
@@ -278,11 +248,11 @@ fun PassengerHomeView(
     fun onPermissionFlowComplete(action: PassengerPendingGatedAction) {
         when (action) {
             PassengerPendingGatedAction.SavePickup -> viewModel.saveMorningPickup(context)
-            is PassengerPendingGatedAction.UpdateAttendance -> viewModel.updateAttendance(action.status, context)
+            is PassengerPendingGatedAction.UpdateAttendance -> viewModel.updateAttendance(action.status, action.dateKey, context)
         }
     }
 
-    fun requestComingAttendance() {
+    fun requestComingAttendance(service: UpcomingService) {
         if (!hasSavedMorningPickup) {
             showComingBlockedWithoutPickupHint = true
             tabController.select(PassengerHomeTab.Service)
@@ -292,17 +262,17 @@ fun PassengerHomeView(
         showComingBlockedWithoutPickupHint = false
         permissionManager.beginGatedAction(
             context,
-            PassengerPendingGatedAction.UpdateAttendance(AttendanceStatus.Coming),
+            PassengerPendingGatedAction.UpdateAttendance(AttendanceStatus.Coming, service.dateKey),
             launcherHolder::launchNotification, launcherHolder::launchLocation, launcherHolder::launchMotion,
             ::onPermissionFlowComplete
         )
     }
 
-    fun requestNotComingAttendance() {
+    fun requestNotComingAttendance(service: UpcomingService) {
         showComingBlockedWithoutPickupHint = false
         permissionManager.beginGatedAction(
             context,
-            PassengerPendingGatedAction.UpdateAttendance(AttendanceStatus.NotComing),
+            PassengerPendingGatedAction.UpdateAttendance(AttendanceStatus.NotComing, service.dateKey),
             launcherHolder::launchNotification, launcherHolder::launchLocation, launcherHolder::launchMotion,
             ::onPermissionFlowComplete
         )
@@ -357,16 +327,11 @@ fun PassengerHomeView(
     val groupID = profile.primaryGroupID.ifBlank { profile.groupID }
 
     fun syncTripAttendanceFromStore() {
-        val store = ShuttleStore.shared
-        if (store.members.value.none { it.id == profile.memberID }) return
-        val holiday = store.members.value
-            .firstOrNull { it.id == profile.memberID }
-            ?.isHolidayModeActive() == true
-        val dateKey = store.planningAttendanceDateKey(holiday)
+        if (viewModel.myMember == null) return
         viewModel.syncTripAttendanceState(
-            isTripActive = store.isTripActive.value,
-            holidayModeActive = holiday,
-            rawAttendance = store.rawAttendanceFor(profile.memberID, dateKey)
+            isTripActive = isTripActive,
+            holidayModeActive = viewModel.isHolidayModeActive,
+            rawAttendance = viewModel.currentServiceRawAttendance
         )
     }
 
@@ -425,21 +390,21 @@ fun PassengerHomeView(
         )
     }
     val tripAttendancePromptKey =
-        "$isTripActive-${myRawAttendance.name}-$memberLoaded-$isHolidayModeActive-${members.size}-$attendanceRevision"
+        "$isTripActive-${currentServiceRawAttendance.name}-$memberLoaded-$isHolidayModeActive-${members.size}-$attendanceRevision"
 
     LaunchedEffect(tripAttendancePromptKey) {
         if (isTripActive && !wasTripActive) {
             viewModel.onTripActiveChanged(
                 wasActive = false,
                 isActive = true,
-                attendance = myRawAttendance,
+                attendance = currentServiceRawAttendance,
                 holidayModeActive = isHolidayModeActive
             )
         } else if (!isTripActive && wasTripActive) {
             viewModel.onTripActiveChanged(
                 wasActive = true,
                 isActive = false,
-                attendance = myRawAttendance,
+                attendance = currentServiceRawAttendance,
                 holidayModeActive = isHolidayModeActive
             )
         }
@@ -449,7 +414,7 @@ fun PassengerHomeView(
         viewModel.syncTripAttendanceState(
             isTripActive = isTripActive,
             holidayModeActive = isHolidayModeActive,
-            rawAttendance = myRawAttendance
+            rawAttendance = currentServiceRawAttendance
         )
     }
 
@@ -459,7 +424,7 @@ fun PassengerHomeView(
                 viewModel.syncTripAttendanceState(
                     isTripActive = isTripActive,
                     holidayModeActive = isHolidayModeActive,
-                    rawAttendance = myRawAttendance
+                    rawAttendance = currentServiceRawAttendance
                 )
                 LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Passenger)
                 MotionActivityService.refreshAuthorization(context)
@@ -498,8 +463,8 @@ fun PassengerHomeView(
         Column(modifier = Modifier.fillMaxSize()) {
             if (selectedTab != PassengerHomeTab.Map) {
                 PassengerTopBar(
-                    isTripActive = isTripActive,
-                    onMenuClick = { showMyServices = true }
+                    groupName = profile.groupName,
+                    isTripActive = isTripActive
                 )
             }
 
@@ -512,10 +477,7 @@ fun PassengerHomeView(
                     PassengerHomeTab.Service -> {
                         PassengerServiceTab(
                             profile = profile,
-                            isTripActive = isTripActive,
-                            myAttendance = myRawAttendance,
-                            myEffectiveAttendance = myEffectiveAttendance,
-                            attendanceQuestion = attendanceQuestion,
+                            nextTwoServices = nextTwoServicesData,
                             savedMorningPickup = savedPickup,
                             draftLatitude = draftCoordinate?.latitude,
                             draftLongitude = draftCoordinate?.longitude,
@@ -524,11 +486,11 @@ fun PassengerHomeView(
                             holidayModeSubtitle = holidayModeSubtitle,
                             holidayModeDetailLine = holidayModeDetailLine,
                             showComingBlockedWithoutPickupHint = showComingBlockedWithoutPickupHint,
-                            onAttendanceSelected = { status ->
+                            onAttendanceSelected = { service, status ->
                                 if (status == AttendanceStatus.Coming) {
-                                    requestComingAttendance()
+                                    requestComingAttendance(service)
                                 } else {
-                                    requestNotComingAttendance()
+                                    requestNotComingAttendance(service)
                                 }
                             },
                             onOpenHolidayModePicker = { showHolidayModePicker = true },
@@ -546,7 +508,7 @@ fun PassengerHomeView(
                             driverRoute = driverRoute,
                             draftCoordinate = draftCoordinate,
                             savedPickup = savedPickup,
-                            myAttendance = myEffectiveAttendance,
+                            myAttendance = currentServiceEffectiveAttendance,
                             isBoardedToday = isBoardedToday,
                             onAttendanceClick = { tabController.select(PassengerHomeTab.Service) },
                             isTripActive = isTripActive,
@@ -561,8 +523,13 @@ fun PassengerHomeView(
                     PassengerHomeTab.Settings -> {
                         PassengerSettingsTab(
                             profile = profile,
+                            displayName = myMember?.name ?: profile.name,
                             currentLanguage = appLanguage,
                             onOpenLanguagePicker = { showLanguagePicker = true },
+                            onOpenMyServices = { showMyServices = true },
+                            onUpdateName = { newName ->
+                                viewModel.updateName(newName)
+                            },
                             onSignOut = {
                                 viewModel.requestSignOut {
                                     viewModel.signOut(context)
@@ -616,8 +583,8 @@ fun PassengerHomeView(
                         driverName = driverLocation?.driverName ?: L10n.driverDefaultName,
                         isLoading = isUpdatingAttendance,
                         pendingStatus = pendingAttendance,
-                        onSelectComing = { requestComingAttendance() },
-                        onSelectNotComing = { requestNotComingAttendance() },
+                        onSelectComing = { requestComingAttendance(currentDriverService) },
+                        onSelectNotComing = { requestNotComingAttendance(currentDriverService) },
                         modifier = Modifier.align(Alignment.BottomCenter)
                     )
                 }
@@ -781,10 +748,49 @@ private fun updatePassengerMotionMonitoring(
 
 @Composable
 private fun PassengerTopBar(
-    isTripActive: Boolean,
-    onMenuClick: () -> Unit
+    groupName: String,
+    isTripActive: Boolean
 ) {
-    RoleNavBar(onMenuClick = onMenuClick) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .background(NeonTheme.Background.copy(alpha = 0.97f))
+            .padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = groupName.uppercase(),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = NeonTheme.OnSurface,
+                maxLines = 1
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(if (isTripActive) NeonTheme.Secondary else NeonTheme.Outline)
+                        .shadow(
+                            elevation = if (isTripActive) 3.dp else 0.dp,
+                            spotColor = if (isTripActive) NeonTheme.Secondary.copy(alpha = 0.8f) else Color.Transparent
+                        )
+                )
+                Text(
+                    text = if (isTripActive) L10n.shuttleActive else L10n.shuttleNotStarted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isTripActive) NeonTheme.Secondary else NeonTheme.OnSurfaceVariant
+                )
+            }
+        }
+
         if (isTripActive) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
