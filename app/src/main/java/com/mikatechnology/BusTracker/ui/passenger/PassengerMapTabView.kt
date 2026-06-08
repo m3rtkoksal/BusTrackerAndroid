@@ -81,6 +81,7 @@ fun PassengerMapTabView(
     groupName: String,
     driverLocation: DriverLocation?,
     driverRoute: List<LatLng>,
+    canonicalMorningRoute: List<LatLng> = emptyList(),
     draftCoordinate: LatLng?,
     savedPickup: MorningPickup?,
     myAttendance: AttendanceStatus,
@@ -198,6 +199,7 @@ fun PassengerMapTabView(
         ShuttleMapView(
             driverLocation = driverLocation,
             driverRoute = driverRoute,
+            canonicalMorningRoute = canonicalMorningRoute,
             isTripActive = isTripActive,
             morningPickups = morningPickupsForMap,
             selectedCoordinate = draftCoordinate,

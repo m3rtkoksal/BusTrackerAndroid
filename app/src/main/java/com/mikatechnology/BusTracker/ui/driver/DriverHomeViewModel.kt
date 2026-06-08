@@ -32,8 +32,9 @@ class DriverHomeViewModel(
     private val _showTripDurationSheet = MutableStateFlow(false)
     val showTripDurationSheet: StateFlow<Boolean> = _showTripDurationSheet.asStateFlow()
 
-    private val _selectedTripDurationHours = MutableStateFlow(2.0)
-    val selectedTripDurationHours: StateFlow<Double> = _selectedTripDurationHours.asStateFlow()
+    companion object {
+        const val DEFAULT_TRIP_DURATION_HOURS = 3.0
+    }
 
     val userProfile: UserProfile
         get() = profile
@@ -62,10 +63,6 @@ class DriverHomeViewModel(
 
     fun presentTripDurationSheet() {
         _showTripDurationSheet.value = true
-    }
-
-    fun selectTripDurationHours(hours: Double) {
-        _selectedTripDurationHours.value = hours
     }
 
     fun passengerStats(members: List<ShuttleMember>): DriverPassengerStats {
@@ -125,15 +122,13 @@ class DriverHomeViewModel(
             _showTripDurationSheet.value = false
             setLoading(true, L10n.startingShuttle)
             try {
-                val hours = _selectedTripDurationHours.value
-                shuttleStore.startTrip(profile.groupID, profile.name, hours)
-                BusTrackerAnalytics.tripStarted(hours)
-                val hoursLabel = if (hours == hours.toLong().toDouble()) {
-                    "${hours.toInt()} saat"
-                } else {
-                    "$hours saat"
-                }
-                showSuccess(L10n.shuttleStartedAutoStop(hoursLabel))
+                shuttleStore.startTrip(
+                    profile.groupID,
+                    profile.name,
+                    DEFAULT_TRIP_DURATION_HOURS
+                )
+                BusTrackerAnalytics.tripStarted(DEFAULT_TRIP_DURATION_HOURS)
+                showSuccess(L10n.shuttleStartedMotionAutoStop)
             } catch (error: Exception) {
                 showError(error.message ?: L10n.shuttleStartFailed)
             } finally {

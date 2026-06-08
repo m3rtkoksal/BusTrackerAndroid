@@ -27,6 +27,7 @@ import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.services.MotionActivityRole
 import com.mikatechnology.BusTracker.services.MotionActivitySegment
+import com.mikatechnology.BusTracker.services.TripMotionAutoStop
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,6 +54,12 @@ class ShuttleStore private constructor() {
     private val _driverRoute = MutableStateFlow<List<LatLng>>(emptyList())
     val driverRoute: StateFlow<List<LatLng>> = _driverRoute.asStateFlow()
 
+    private val _canonicalMorningRoute = MutableStateFlow<List<LatLng>>(emptyList())
+    val canonicalMorningRoute: StateFlow<List<LatLng>> = _canonicalMorningRoute.asStateFlow()
+
+    private val _isCanonicalMorningRouteReady = MutableStateFlow(false)
+    val isCanonicalMorningRouteReady: StateFlow<Boolean> = _isCanonicalMorningRouteReady.asStateFlow()
+
     private val _morningPickups = MutableStateFlow<List<MorningPickup>>(emptyList())
     val morningPickups: StateFlow<List<MorningPickup>> = _morningPickups.asStateFlow()
 
@@ -68,6 +75,7 @@ class ShuttleStore private constructor() {
     private var membersListener: ListenerRegistration? = null
     private var locationListener: ListenerRegistration? = null
     private var routeListener: ListenerRegistration? = null
+    private var canonicalRouteListener: ListenerRegistration? = null
     private var attendanceListeners: MutableMap<String, ListenerRegistration> = mutableMapOf()
     private var attendanceResponsesByDate: Map<String, Map<String, Map<String, Any>>> = emptyMap()
     private var morningPickupsListener: ListenerRegistration? = null
@@ -80,6 +88,9 @@ class ShuttleStore private constructor() {
     private var lastDriverTelemetryLocation: Location? = null
     private var tripAutoStopJob: Job? = null
     private var pickupReachLoggedMemberIDs: MutableSet<String> = mutableSetOf()
+    private var activeTripStartedAt: Date? = null
+    private var tripActivityListener: ListenerRegistration? = null
+    private var motionAutoStopTriggered = false
 
     private val _plannedTripEndAt = MutableStateFlow<Date?>(null)
     val plannedTripEndAt: StateFlow<Date?> = _plannedTripEndAt.asStateFlow()
@@ -129,6 +140,17 @@ class ShuttleStore private constructor() {
 
         startAttendanceListeners(groupID)
 
+        canonicalRouteListener = db.collection("groups").document(groupID)
+            .collection("canonicalRoutes")
+            .document("morning")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) return@addSnapshotListener
+                val data = snapshot?.data
+                val ready = data?.get("status") as? String == "ready"
+                _isCanonicalMorningRouteReady.value = ready
+                _canonicalMorningRoute.value = if (ready) routePointsFrom(data) else emptyList()
+            }
+
         morningPickupsListener = db.collection("groups").document(groupID)
             .collection("morningPickups")
             .addSnapshotListener { snapshot, error ->
@@ -146,15 +168,19 @@ class ShuttleStore private constructor() {
         membersListener?.remove()
         locationListener?.remove()
         routeListener?.remove()
+        canonicalRouteListener?.remove()
         stopAttendanceListeners()
         morningPickupsListener?.remove()
         membersListener = null
         locationListener = null
         routeListener = null
+        canonicalRouteListener = null
         morningPickupsListener = null
         attendanceResponsesByDate = emptyMap()
         _morningPickups.value = emptyList()
         _driverRoute.value = emptyList()
+        _canonicalMorningRoute.value = emptyList()
+        _isCanonicalMorningRouteReady.value = false
         lastAppendedRoutePoint = null
         _isTripActive.value = false
         _currentActiveTripGroupID.value = null
@@ -164,6 +190,7 @@ class ShuttleStore private constructor() {
         tripAutoStopJob?.cancel()
         tripAutoStopJob = null
         _plannedTripEndAt.value = null
+        stopTripActivityListener()
         LocationTracker.setOnLocationUpdate(null)
         LocationTracker.stopTracking()
     }
@@ -213,6 +240,9 @@ class ShuttleStore private constructor() {
         lastDriverTelemetryLocation = null
 
         _isTripActive.value = true
+        activeTripStartedAt = Date()
+        motionAutoStopTriggered = false
+        startTripActivityListener(groupID)
         _currentActiveTripGroupID.value = groupID
         activeTripGroupID = groupID
         activeTripDriverName = driverName
@@ -239,6 +269,21 @@ class ShuttleStore private constructor() {
     }
 
     suspend fun stopTrip(groupID: String, driverName: String) {
+        val routeToArchive = _driverRoute.value.toList()
+        val tripStartedAt = activeTripStartedAt
+        activeTripStartedAt = null
+
+        runCatching {
+            archiveRouteHistory(
+                groupID = groupID,
+                driverName = driverName,
+                points = routeToArchive,
+                startedAt = tripStartedAt
+            )
+        }
+
+        stopTripActivityListener()
+
         tripAutoStopJob?.cancel()
         tripAutoStopJob = null
         _plannedTripEndAt.value = null
@@ -400,6 +445,40 @@ class ShuttleStore private constructor() {
         for (document in snapshot.documents) {
             document.reference.delete().await()
         }
+    }
+
+    private suspend fun archiveRouteHistory(
+        groupID: String,
+        driverName: String,
+        points: List<LatLng>,
+        startedAt: Date?
+    ) {
+        if (points.size < MIN_ROUTE_HISTORY_POINT_COUNT) return
+
+        val service = ServiceSchedule.currentDriverSession()
+        val endedAt = Date()
+        val pointsData = points.map { point ->
+            mapOf(
+                "latitude" to point.latitude,
+                "longitude" to point.longitude
+            )
+        }
+
+        db.collection("groups").document(groupID)
+            .collection("routeHistory")
+            .add(
+                mapOf(
+                    "session" to service.session.suffix,
+                    "tripDate" to HolidayMode.dateKey(service.date),
+                    "dateKey" to service.dateKey,
+                    "driverName" to driverName,
+                    "startedAt" to Timestamp(startedAt ?: endedAt),
+                    "endedAt" to Timestamp(endedAt),
+                    "pointCount" to points.size,
+                    "points" to pointsData
+                )
+            )
+            .await()
     }
 
     private suspend fun resetDriverRoute(groupID: String) {
@@ -589,7 +668,12 @@ class ShuttleStore private constructor() {
         role: MotionActivityRole,
         memberID: String,
         automotiveSecondsInWindow: Int,
-        segments: List<MotionActivitySegment>
+        segments: List<MotionActivitySegment>,
+        currentActivity: String = "unknown",
+        inVehicle: Boolean = false,
+        lastVehicleExitAt: Date? = null,
+        walkingSince: Date? = null,
+        hasBeenInVehicle: Boolean = false
     ) {
         if (FirebaseAuth.getInstance().currentUser == null) return
 
@@ -606,20 +690,98 @@ class ShuttleStore private constructor() {
             )
         }
 
+        val payload = mutableMapOf<String, Any>(
+            "tripDate" to todayKey,
+            "role" to role.rawValue,
+            "memberID" to memberID,
+            "automotiveSecondsInWindow" to automotiveSecondsInWindow,
+            "segments" to encodedSegments,
+            "currentActivity" to currentActivity,
+            "inVehicle" to inVehicle,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        if (hasBeenInVehicle) {
+            payload["hasBeenInVehicle"] = true
+        }
+        lastVehicleExitAt?.let { payload["lastVehicleExitAt"] = Timestamp(it) }
+        walkingSince?.let { payload["walkingSince"] = Timestamp(it) }
+
         db.collection("groups").document(groupID)
             .collection("tripActivity").document(documentID)
-            .set(
-                mapOf(
-                    "tripDate" to todayKey,
-                    "role" to role.rawValue,
-                    "memberID" to memberID,
-                    "automotiveSecondsInWindow" to automotiveSecondsInWindow,
-                    "segments" to encodedSegments,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                ),
-                com.google.firebase.firestore.SetOptions.merge()
-            )
+            .set(payload, com.google.firebase.firestore.SetOptions.merge())
             .await()
+    }
+
+    private fun startTripActivityListener(groupID: String) {
+        stopTripActivityListener()
+        tripActivityListener = db.collection("groups").document(groupID)
+            .collection("tripActivity")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) return@addSnapshotListener
+                evaluatePassengerMotionAutoStop(snapshot)
+            }
+    }
+
+    private fun stopTripActivityListener() {
+        tripActivityListener?.remove()
+        tripActivityListener = null
+    }
+
+    private fun evaluatePassengerMotionAutoStop(
+        snapshot: com.google.firebase.firestore.QuerySnapshot?
+    ) {
+        if (!_isTripActive.value || motionAutoStopTriggered) return
+        val groupID = activeTripGroupID ?: return
+        val driverName = activeTripDriverName ?: return
+        val tripStartedAt = activeTripStartedAt ?: return
+
+        val documents = snapshot?.documents.orEmpty()
+        val pickupReachMemberIDs = mutableSetOf<String>()
+        val passengerSnapshots = mutableListOf<TripMotionAutoStop.PassengerMotionSnapshot>()
+
+        for (document in documents) {
+            val documentID = document.id
+            val data = document.data ?: continue
+
+            if (documentID.startsWith("pickupReach_")) {
+                (data["memberID"] as? String)?.let { pickupReachMemberIDs.add(it) }
+                continue
+            }
+
+            if (!documentID.startsWith("activity_passenger_")) continue
+            if (data["role"] != MotionActivityRole.Passenger.rawValue) continue
+            val memberID = data["memberID"] as? String ?: continue
+
+            passengerSnapshots.add(
+                TripMotionAutoStop.PassengerMotionSnapshot(
+                    memberID = memberID,
+                    inVehicle = data["inVehicle"] as? Boolean ?: false,
+                    currentActivity = data["currentActivity"] as? String ?: "unknown",
+                    hasBeenInVehicle = data["hasBeenInVehicle"] as? Boolean ?: false,
+                    lastVehicleExitAt = (data["lastVehicleExitAt"] as? Timestamp)?.toDate(),
+                    walkingSince = (data["walkingSince"] as? Timestamp)?.toDate(),
+                    hadPickupReach = pickupReachMemberIDs.contains(memberID)
+                )
+            )
+        }
+
+        val mergedPassengers = passengerSnapshots.map { state ->
+            state.copy(hadPickupReach = state.hadPickupReach || pickupReachMemberIDs.contains(state.memberID))
+        }
+
+        val comingMemberIDs = _members.value
+            .filter { it.role == MemberRole.Passenger && serviceDayAttendanceFor(it) == AttendanceStatus.Coming }
+            .map { it.id }
+            .toSet()
+
+        if (!TripMotionAutoStop.shouldAutoStopTrip(tripStartedAt, comingMemberIDs, mergedPassengers)) {
+            return
+        }
+
+        motionAutoStopTriggered = true
+        scope.launch {
+            stopTrip(groupID, driverName)
+        }
     }
 
     private suspend fun recordPickupReachIfNeeded(
@@ -993,6 +1155,7 @@ class ShuttleStore private constructor() {
 
     companion object {
         private const val MIN_ROUTE_POINT_DISTANCE_METERS = 20f
+        private const val MIN_ROUTE_HISTORY_POINT_COUNT = 5
         private const val PICKUP_REACH_RADIUS_METERS = 120f
         val shared = ShuttleStore()
     }

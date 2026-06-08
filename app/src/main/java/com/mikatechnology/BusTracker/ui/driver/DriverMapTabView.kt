@@ -217,25 +217,13 @@ private fun NextStopCard(
                     color = NeonTheme.OnSurface,
                     modifier = Modifier.padding(top = 8.dp)
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp)
-                ) {
-                    distanceToPickup(driverLocation, pickup)?.let { distance ->
-                        Text(
-                            text = distance,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = NeonTheme.Secondary
-                        )
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
+                distanceToPickup(driverLocation, pickup)?.let { distance ->
                     Text(
-                        text = L10n.morningPickup,
-                        fontSize = 11.sp,
+                        text = distance,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = NeonTheme.OnSurfaceVariant
+                        color = NeonTheme.Secondary,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
             } else {

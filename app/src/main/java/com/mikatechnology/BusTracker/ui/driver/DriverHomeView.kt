@@ -60,6 +60,7 @@ import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.services.LocationAuthStatus
 import com.mikatechnology.BusTracker.services.LocationPermissionRole
 import com.mikatechnology.BusTracker.services.LocationTracker
+import com.mikatechnology.BusTracker.services.PushNotificationRouter
 import com.mikatechnology.BusTracker.services.MotionActivityRole
 import com.mikatechnology.BusTracker.services.MotionActivityService
 import com.mikatechnology.BusTracker.localization.LanguageManager
@@ -121,7 +122,6 @@ fun DriverHomeView(
     val locationAuthStatus by LocationTracker.authorizationStatus.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val showTripDurationSheet by viewModel.showTripDurationSheet.collectAsStateWithLifecycle()
-    val selectedTripDurationHours by viewModel.selectedTripDurationHours.collectAsStateWithLifecycle()
 
     val passengers = members.filter { it.role == MemberRole.Passenger }
     val stats = remember(members, attendanceRevision) { viewModel.passengerStats(members) }
@@ -257,6 +257,15 @@ fun DriverHomeView(
         if (LocationTracker.hasFineLocation(context)) {
             LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
             LocationTracker.requestSingleLocation(context)
+        }
+        if (PushNotificationRouter.consumePendingOpenDriverMap()) {
+            tabController.select(DriverHomeTab.Map)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        PushNotificationRouter.openDriverMap.collect {
+            tabController.select(DriverHomeTab.Map)
         }
     }
 
@@ -446,8 +455,6 @@ fun DriverHomeView(
                             .clickable { viewModel.dismissTripDurationSheet() }
                     )
                     TripDurationBottomSheet(
-                        selectedHours = selectedTripDurationHours,
-                        onSelectedHoursChange = viewModel::selectTripDurationHours,
                         isLoading = uiState.isLoading,
                         canStartTrip = permissionScope.canDriverStartTripFully(),
                         onConfirm = {

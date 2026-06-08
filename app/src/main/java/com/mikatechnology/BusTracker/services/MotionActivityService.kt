@@ -48,6 +48,10 @@ object MotionActivityService {
     private var memberID: String? = null
 
     private var openAutomotiveStartedAt: Date? = null
+    private var lastVehicleExitAt: Date? = null
+    private var walkingSince: Date? = null
+    private var hasBeenInVehicleThisSession = false
+    private var currentActivity: MotionCurrentActivity = MotionCurrentActivity.Unknown
     private val segments = mutableListOf<MotionActivitySegment>()
     private var uploadJob: Job? = null
     private var transitionPendingIntent: PendingIntent? = null
@@ -122,6 +126,10 @@ object MotionActivityService {
         transitionPendingIntent = null
         updatesPendingIntent = null
         openAutomotiveStartedAt = null
+        lastVehicleExitAt = null
+        walkingSince = null
+        hasBeenInVehicleThisSession = false
+        currentActivity = MotionCurrentActivity.Unknown
         segments.clear()
         role = null
         groupID = null
@@ -190,7 +198,11 @@ object MotionActivityService {
                     }
                 }
                 ActivityTransition.ACTIVITY_TRANSITION_EXIT -> {
+                    if (openAutomotiveStartedAt != null) {
+                        lastVehicleExitAt = now
+                    }
                     closeOpenSegment(now)
+                    currentActivity = MotionCurrentActivity.Unknown
                 }
             }
         }
@@ -198,18 +210,41 @@ object MotionActivityService {
     }
 
     internal fun onActivityResult(result: ActivityRecognitionResult) {
-        applyAutomotiveState(isAutomotive(result), Date())
+        applyActivityState(classify(result), Date())
     }
 
-    private fun applyAutomotiveState(automotive: Boolean, now: Date) {
+    private fun applyActivityState(classified: MotionCurrentActivity, now: Date) {
+        currentActivity = classified
+        val automotive = classified == MotionCurrentActivity.InVehicle
+
         if (automotive) {
+            hasBeenInVehicleThisSession = true
+            walkingSince = null
             if (openAutomotiveStartedAt == null) {
                 openAutomotiveStartedAt = now
             }
         } else {
-            closeOpenSegment(now)
+            if (openAutomotiveStartedAt != null) {
+                lastVehicleExitAt = now
+                closeOpenSegment(now)
+            }
+            walkingSince = if (classified == MotionCurrentActivity.Walking) {
+                walkingSince ?: now
+            } else {
+                null
+            }
         }
         pruneSegments(now)
+    }
+
+    private fun classify(result: ActivityRecognitionResult): MotionCurrentActivity {
+        if (isAutomotive(result)) return MotionCurrentActivity.InVehicle
+        val activities = result.probableActivities
+        val walking = activities.firstOrNull { it.type == DetectedActivity.WALKING }
+        if (walking != null && walking.confidence >= 50) return MotionCurrentActivity.Walking
+        val still = activities.firstOrNull { it.type == DetectedActivity.STILL }
+        if (still != null && still.confidence >= 50) return MotionCurrentActivity.Stationary
+        return MotionCurrentActivity.Unknown
     }
 
     private fun closeOpenSegment(now: Date) {
@@ -268,7 +303,12 @@ object MotionActivityService {
                 role = currentRole,
                 memberID = currentMemberID,
                 automotiveSecondsInWindow = automotiveSeconds,
-                segments = workingSegments
+                segments = workingSegments,
+                currentActivity = currentActivity.rawValue,
+                inVehicle = openAutomotiveStartedAt != null,
+                lastVehicleExitAt = lastVehicleExitAt,
+                walkingSince = walkingSince,
+                hasBeenInVehicle = hasBeenInVehicleThisSession || openAutomotiveStartedAt != null
             )
         }
     }

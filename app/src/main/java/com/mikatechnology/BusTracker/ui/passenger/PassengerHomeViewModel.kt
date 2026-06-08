@@ -8,7 +8,9 @@ import com.mikatechnology.BusTracker.base.NavigationBarStyle
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.HolidayMode
 import com.mikatechnology.BusTracker.data.model.isHolidayModeActive
+import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.model.ServiceSchedule
+import com.mikatechnology.BusTracker.data.model.ShuttleMember
 import com.mikatechnology.BusTracker.data.model.UpcomingService
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
@@ -94,6 +96,12 @@ class PassengerHomeViewModel(
         return raw == AttendanceStatus.NotComing ||
             (isHolidayModeActive && raw == AttendanceStatus.Unknown && effective == AttendanceStatus.NotComing)
     }
+
+    fun notComingPassengers(service: UpcomingService): List<ShuttleMember> =
+        store.members.value
+            .filter { it.role == MemberRole.Passenger }
+            .filter { store.rawAttendanceFor(it.id, service.dateKey) == AttendanceStatus.NotComing }
+            .sortedBy { it.name.lowercase() }
 
     val savedMorningPickup: com.mikatechnology.BusTracker.data.model.MorningPickup?
         get() = store.morningPickup(profile.memberID)

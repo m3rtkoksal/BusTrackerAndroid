@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.MorningPickup
+import com.mikatechnology.BusTracker.data.model.ShuttleMember
 import com.mikatechnology.BusTracker.data.model.UpcomingService
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.localization.L10n
@@ -67,6 +68,8 @@ data class ServiceAttendanceState(
 fun PassengerServiceTab(
     profile: UserProfile,
     nextTwoServices: List<ServiceAttendanceState>,
+    nearestUpcomingService: UpcomingService,
+    notComingPassengers: List<ShuttleMember>,
     savedMorningPickup: MorningPickup?,
     draftLatitude: Double?,
     draftLongitude: Double?,
@@ -150,6 +153,11 @@ fun PassengerServiceTab(
                 )
             }
         }
+
+        NotComingPassengersSection(
+            service = nearestUpcomingService,
+            passengers = notComingPassengers
+        )
 
         HolidayModeServiceCard(
             isActive = isHolidayModeActive,
@@ -241,6 +249,94 @@ fun PassengerServiceTab(
             isLoading = weatherLatitude != null && weatherLongitude != null && pickupWeatherLoading,
             emptyMessage = if (weatherLatitude == null || weatherLongitude == null) L10n.weatherNeedsPickup else null
         )
+    }
+}
+
+@Composable
+private fun NotComingPassengersSection(
+    service: UpcomingService,
+    passengers: List<ShuttleMember>
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(ServiceCardShape)
+            .background(NeonTheme.SurfaceContainer)
+            .border(
+                width = 1.5.dp,
+                color = NeonTheme.OnSurfaceVariant.copy(alpha = 0.55f),
+                shape = ServiceCardShape
+            )
+            .padding(16.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = service.session.icon,
+                fontSize = 16.sp
+            )
+            Text(
+                text = L10n.serviceNotComingListTitle(service.relativeDisplayName()).uppercase(),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                color = NeonTheme.OnSurface
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (passengers.isEmpty()) {
+            Text(
+                text = L10n.serviceNotComingListEmpty,
+                fontSize = 14.sp,
+                color = NeonTheme.OnSurfaceVariant
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        width = 2.dp,
+                        color = NeonTheme.OnSurfaceVariant.copy(alpha = 0.7f),
+                        shape = ServiceCardShape
+                    )
+            ) {
+                passengers.forEachIndexed { index, member ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(NeonTheme.SurfaceContainer.copy(alpha = 0.6f))
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = null,
+                            tint = ErrorRed,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = member.name,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = NeonTheme.OnSurface,
+                            modifier = Modifier.padding(start = 12.dp)
+                        )
+                    }
+                    if (index < passengers.lastIndex) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.5.dp)
+                                .background(NeonTheme.OnSurfaceVariant.copy(alpha = 0.45f))
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
