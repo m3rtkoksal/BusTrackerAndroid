@@ -188,12 +188,20 @@ object ServiceSchedule {
 
         val today = startOfDay(reference)
 
-        return if (hour < EVENING_START_HOUR) {
-            // 00:00 - 15:59: Sabah servisi
-            UpcomingService(today, ServiceSession.Morning)
-        } else {
-            // 16:00 - 23:59: Akşam servisi
-            UpcomingService(today, ServiceSession.Evening)
+        return when {
+            hour < MORNING_END_HOUR -> {
+                // 00:00 - 09:59: Sabah servisi
+                UpcomingService(today, ServiceSession.Morning)
+            }
+            hour < EVENING_END_HOUR -> {
+                // 10:00 - 19:59: Akşam servisi
+                UpcomingService(today, ServiceSession.Evening)
+            }
+            else -> {
+                // 20:00 - 23:59: Sonraki iş günü sabah
+                val nextWorkday = nextWeekday(reference, afterToday = true)
+                UpcomingService(nextWorkday, ServiceSession.Morning)
+            }
         }
     }
 

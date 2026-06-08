@@ -67,6 +67,9 @@ class PassengerHomeViewModel(
     val currentDriverService: UpcomingService
         get() = ServiceSchedule.currentDriverSession()
 
+    val nearestUpcomingService: UpcomingService
+        get() = nextTwoServices.firstOrNull() ?: ServiceSchedule.currentDriverSession()
+
     fun rawAttendance(service: UpcomingService): AttendanceStatus =
         store.rawAttendanceFor(profile.memberID, service.dateKey)
 
@@ -78,6 +81,9 @@ class PassengerHomeViewModel(
 
     val currentServiceEffectiveAttendance: AttendanceStatus
         get() = effectiveAttendance(currentDriverService)
+
+    val nearestUpcomingServiceEffectiveAttendance: AttendanceStatus
+        get() = effectiveAttendance(nearestUpcomingService)
 
     fun isComingSelected(service: UpcomingService): Boolean =
         rawAttendance(service) == AttendanceStatus.Coming

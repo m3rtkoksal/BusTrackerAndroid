@@ -230,7 +230,9 @@ fun PassengerHomeView(
     val nextTwoServicesData = remember(attendanceRevision) { viewModel.getNextTwoServicesData() }
     val currentDriverService = viewModel.currentDriverService
     val currentServiceRawAttendance = remember(attendanceRevision) { viewModel.currentServiceRawAttendance }
-    val currentServiceEffectiveAttendance = remember(attendanceRevision) { viewModel.currentServiceEffectiveAttendance }
+    val nearestUpcomingServiceEffectiveAttendance = remember(attendanceRevision) {
+        viewModel.nearestUpcomingServiceEffectiveAttendance
+    }
     val isBoardedToday = viewModel.isBoardedToday
     val holidayModeSubtitle = viewModel.holidayModeSubtitle
     val holidayModeDetailLine = viewModel.holidayModeDetailLine
@@ -515,7 +517,7 @@ fun PassengerHomeView(
                             driverRoute = driverRoute,
                             draftCoordinate = draftCoordinate,
                             savedPickup = savedPickup,
-                            myAttendance = currentServiceEffectiveAttendance,
+                            myAttendance = nearestUpcomingServiceEffectiveAttendance,
                             isBoardedToday = isBoardedToday,
                             onAttendanceClick = { tabController.select(PassengerHomeTab.Service) },
                             isTripActive = isTripActive,

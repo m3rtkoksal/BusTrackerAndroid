@@ -422,7 +422,8 @@ private fun DriverEmptyPassengersState() {
 
 @Composable
 private fun PassengerListSection(passengers: List<ShuttleMember>) {
-    val currentService = remember { ShuttleStore.shared.currentDriverService }
+    val attendanceRevision by ShuttleStore.shared.attendanceRevision.collectAsStateWithLifecycle()
+    val currentService = remember(attendanceRevision) { ShuttleStore.shared.currentDriverService }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
