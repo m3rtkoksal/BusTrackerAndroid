@@ -22,7 +22,9 @@ object PushNotificationRouter {
 
     fun handleIntent(intent: Intent?) {
         when (intent?.extras?.getString("type")) {
-            TYPE_TRIP_STARTED, TYPE_PASSENGER_BOARDED -> signalOpenPassengerMap()
+            TYPE_TRIP_STARTED,
+            TYPE_PASSENGER_BOARDED,
+            TYPE_CANONICAL_ROUTE_READY -> signalOpenPassengerMap()
             SparseModeSuggestion.INTENT_TYPE,
             TYPE_SPARSE_MODE_SUGGESTION,
             TYPE_OPEN_HOLIDAY_MODE_LEGACY -> signalOpenSparseModeSheet()
@@ -32,7 +34,9 @@ object PushNotificationRouter {
 
     fun handleRemoteMessage(message: RemoteMessage) {
         when (message.data["type"]) {
-            TYPE_TRIP_STARTED, TYPE_PASSENGER_BOARDED -> signalOpenPassengerMap()
+            TYPE_TRIP_STARTED,
+            TYPE_PASSENGER_BOARDED,
+            TYPE_CANONICAL_ROUTE_READY -> signalOpenPassengerMap()
             TYPE_SPARSE_MODE_SUGGESTION -> signalOpenSparseModeSheet()
             else -> Unit
         }
@@ -62,6 +66,7 @@ object PushNotificationRouter {
 
     private const val TYPE_TRIP_STARTED = "trip_started"
     private const val TYPE_PASSENGER_BOARDED = "passenger_boarded"
+    private const val TYPE_CANONICAL_ROUTE_READY = "canonical_route_ready"
     private const val TYPE_SPARSE_MODE_SUGGESTION = "sparse_mode_suggestion"
     private const val TYPE_OPEN_HOLIDAY_MODE_LEGACY = "open_holiday_mode"
 }

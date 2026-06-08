@@ -414,6 +414,15 @@ object L10n {
     fun weatherContext(placeName: String, temperature: Int) = t("Bugün $placeName · $temperature°", "Today $placeName · $temperature°")
     fun choiceSaved(choice: String) = t("Seçiminiz kaydedildi: $choice", "Your choice was saved: $choice")
     fun shuttleStartedAutoStop(hoursLabel: String) = t("Servis başlatıldı. $hoursLabel sonra otomatik duracak.", "Shuttle started. It will stop automatically after $hoursLabel.")
+    val shuttleStartedMotionAutoStop get() = t(
+        "Servis başlatıldı. Yolcular indiğinde otomatik duracak.",
+        "Shuttle started. It will stop automatically when passengers have been dropped off."
+    )
+    val tripStartConfirmTitle get() = t("Servisi Başlat", "Start Shuttle")
+    val tripStartConfirmBody get() = t(
+        "Konumunuz yolcularla paylaşılır. Yolcular indiğinde servis otomatik durur. En geç 3 saatte de durur.",
+        "Your location is shared with passengers. The shuttle stops when passengers have been dropped off, or after 3 hours at most."
+    )
     fun driverStartedTrip(driverName: String) = t("$driverName servisi yola çıktı. Bugün gelecek misiniz?", "$driverName's shuttle is on the way. Are you coming today?")
     fun unspecifiedCount(count: Int) = t("$count belirtmedi", "$count no response")
     fun startedAt(time: String) = t("Başlangıç: $time", "Started: $time")

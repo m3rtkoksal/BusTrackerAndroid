@@ -214,6 +214,7 @@ fun PassengerHomeView(
     val isTripActive by ShuttleStore.shared.isTripActive.collectAsStateWithLifecycle()
     val driverLocation by ShuttleStore.shared.driverLocation.collectAsState()
     val driverRoute by ShuttleStore.shared.driverRoute.collectAsState()
+    val canonicalMorningRoute by ShuttleStore.shared.canonicalMorningRoute.collectAsState()
     val morningPickups by ShuttleStore.shared.morningPickups.collectAsState()
     val members by ShuttleStore.shared.members.collectAsStateWithLifecycle()
 
@@ -515,6 +516,7 @@ fun PassengerHomeView(
                             groupName = profile.groupName,
                             driverLocation = driverLocation,
                             driverRoute = driverRoute,
+                            canonicalMorningRoute = canonicalMorningRoute,
                             draftCoordinate = draftCoordinate,
                             savedPickup = savedPickup,
                             myAttendance = nearestUpcomingServiceEffectiveAttendance,

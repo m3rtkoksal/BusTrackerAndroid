@@ -61,6 +61,7 @@ private const val TAG = "ShuttleMapView"
 fun ShuttleMapView(
     driverLocation: DriverLocation?,
     driverRoute: List<LatLng> = emptyList(),
+    canonicalMorningRoute: List<LatLng> = emptyList(),
     isTripActive: Boolean = false,
     morningPickups: List<MorningPickup>,
     modifier: Modifier = Modifier,
@@ -136,6 +137,15 @@ fun ShuttleMapView(
                 map.setOnMapLoadedCallback {
                     Log.d(TAG, "Map tiles callback")
                 }
+            }
+
+            if (!isTripActive && canonicalMorningRoute.isNotEmpty()) {
+                Polyline(
+                    points = canonicalMorningRoute,
+                    color = Color(0x7300FFCC),
+                    width = 8f,
+                    geodesic = true
+                )
             }
 
             if (DriverRouteDisplay.shouldDrawPolyline(driverRoute, driverLocation, isTripActive)) {
