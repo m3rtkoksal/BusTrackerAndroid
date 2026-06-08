@@ -31,7 +31,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,6 +72,14 @@ fun DriverPassengersTab(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val attendanceRevision by ShuttleStore.shared.attendanceRevision.collectAsStateWithLifecycle()
+    var showOnlyNotComing by remember { mutableStateOf(false) }
+    val displayedPassengers = remember(passengers, showOnlyNotComing, attendanceRevision) {
+        if (!showOnlyNotComing) passengers
+        else passengers.filter {
+            ShuttleStore.shared.serviceDayAttendanceFor(it) == AttendanceStatus.NotComing
+        }
+    }
 
     Column(
         modifier = modifier
@@ -125,12 +135,16 @@ fun DriverPassengersTab(
             onToggleTrip = onToggleTrip
         )
 
-        StatsGrid(stats = stats)
+        StatsGrid(
+            stats = stats,
+            notComingFilterActive = showOnlyNotComing,
+            onNotComingTap = { showOnlyNotComing = !showOnlyNotComing }
+        )
 
         if (passengers.isEmpty()) {
             DriverEmptyPassengersState()
         } else {
-            PassengerListSection(passengers = passengers)
+            PassengerListSection(passengers = displayedPassengers)
         }
 
         when {
@@ -300,7 +314,11 @@ private fun TripControlSection(
 }
 
 @Composable
-private fun StatsGrid(stats: DriverPassengerStats) {
+private fun StatsGrid(
+    stats: DriverPassengerStats,
+    notComingFilterActive: Boolean,
+    onNotComingTap: () -> Unit
+) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         StatCard(
             title = "GELECEK",
@@ -316,6 +334,8 @@ private fun StatsGrid(stats: DriverPassengerStats) {
             valueColor = DangerColor,
             borderColor = DangerColor.copy(alpha = 0.3f),
             trailingIcon = Icons.Default.Cancel,
+            isActive = notComingFilterActive,
+            onClick = onNotComingTap,
             modifier = Modifier.weight(1f)
         )
         StatCard(
@@ -336,13 +356,20 @@ private fun StatCard(
     valueColor: androidx.compose.ui.graphics.Color,
     borderColor: androidx.compose.ui.graphics.Color,
     trailingIcon: androidx.compose.ui.graphics.vector.ImageVector,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isActive: Boolean = false,
+    onClick: (() -> Unit)? = null
 ) {
+    val baseModifier = modifier
+        .background(if (isActive) valueColor.copy(alpha = 0.12f) else NeonTheme.SurfaceContainer)
+        .border(
+            width = if (isActive) 2.dp else 1.dp,
+            color = if (isActive) valueColor.copy(alpha = 0.65f) else borderColor
+        )
+        .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+
     Column(
-        modifier = modifier
-            .background(NeonTheme.SurfaceContainer)
-            .border(1.dp, borderColor)
-            .padding(12.dp),
+        modifier = baseModifier.padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(

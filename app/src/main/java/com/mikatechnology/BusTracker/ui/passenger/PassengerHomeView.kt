@@ -229,6 +229,10 @@ fun PassengerHomeView(
     val myMember = viewModel.myMember
     val isHolidayModeActive = viewModel.isHolidayModeActive
     val nextTwoServicesData = remember(attendanceRevision) { viewModel.getNextTwoServicesData() }
+    val nearestUpcomingService = remember(attendanceRevision) { viewModel.nearestUpcomingService }
+    val notComingPassengers = remember(attendanceRevision, members) {
+        viewModel.notComingPassengers(nearestUpcomingService)
+    }
     val currentDriverService = viewModel.currentDriverService
     val currentServiceRawAttendance = remember(attendanceRevision) { viewModel.currentServiceRawAttendance }
     val nearestUpcomingServiceEffectiveAttendance = remember(attendanceRevision) {
@@ -488,6 +492,8 @@ fun PassengerHomeView(
                         PassengerServiceTab(
                             profile = profile,
                             nextTwoServices = nextTwoServicesData,
+                            nearestUpcomingService = nearestUpcomingService,
+                            notComingPassengers = notComingPassengers,
                             savedMorningPickup = savedPickup,
                             draftLatitude = draftCoordinate?.latitude,
                             draftLongitude = draftCoordinate?.longitude,

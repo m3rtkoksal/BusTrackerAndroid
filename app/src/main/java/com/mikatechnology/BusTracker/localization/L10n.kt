@@ -25,6 +25,9 @@ object L10n {
     val attendanceBoarded get() = t("Bindi", "On board")
     val attendanceBoardedSelf get() = t("Servise bindim", "On the shuttle")
     fun passengerBoardedNotification(name: String) = t("$name servise bindi", "$name boarded the shuttle")
+    fun serviceNotComingListTitle(serviceRelativeName: String) =
+        t("$serviceRelativeName Gelmeyenler", "$serviceRelativeName — Not coming")
+    val serviceNotComingListEmpty get() = t("Henüz kimse gelmiyorum seçmedi.", "No one has marked not coming yet.")
     val roleDriver get() = t("Sürücü", "Driver")
     val rolePassenger get() = t("Yolcu", "Passenger")
     val tabPassengers get() = t("Yolcular", "Passengers")

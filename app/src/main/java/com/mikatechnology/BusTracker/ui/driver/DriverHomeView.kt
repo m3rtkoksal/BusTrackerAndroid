@@ -60,6 +60,7 @@ import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.services.LocationAuthStatus
 import com.mikatechnology.BusTracker.services.LocationPermissionRole
 import com.mikatechnology.BusTracker.services.LocationTracker
+import com.mikatechnology.BusTracker.services.PushNotificationRouter
 import com.mikatechnology.BusTracker.services.MotionActivityRole
 import com.mikatechnology.BusTracker.services.MotionActivityService
 import com.mikatechnology.BusTracker.localization.LanguageManager
@@ -256,6 +257,15 @@ fun DriverHomeView(
         if (LocationTracker.hasFineLocation(context)) {
             LocationTracker.refreshAuthorizationStatus(context, LocationPermissionRole.Driver)
             LocationTracker.requestSingleLocation(context)
+        }
+        if (PushNotificationRouter.consumePendingOpenDriverMap()) {
+            tabController.select(DriverHomeTab.Map)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        PushNotificationRouter.openDriverMap.collect {
+            tabController.select(DriverHomeTab.Map)
         }
     }
 
