@@ -89,6 +89,61 @@ object L10n {
     val settingsServiceCode get() = t("Servis Kodu", "Shuttle Code")
     val settingsYourName get() = t("Adınız", "Your Name")
     val settingsShuttle get() = t("Servis", "Shuttle")
+
+    val subscription get() = t("Üyelik", "Membership")
+    val subscriptionSectionTitle get() = t("Üyelik durumu", "Membership status")
+    val subscriptionStartDate get() = t("Üyelik başlangıç", "Membership start")
+    val subscriptionEndDate get() = t("Üyelik bitiş", "Membership end")
+    val subscriptionInactive get() = t("Kapalı", "Inactive")
+    val subscriptionActiveDescription get() = t(
+        "Üyeliğiniz aktif. Bitiş tarihine kadar sürücü özelliklerini kullanabilirsiniz.",
+        "Your membership is active. You can use driver features until the end date."
+    )
+    val subscriptionInactiveDescription get() = t(
+        "Şu an aktif üyelik görünmüyor.",
+        "No active membership at the moment."
+    )
+    val subscriptionPaymentLinkTitle get() = t("Üyeliği devam ettir", "Continue membership")
+    val subscriptionRenewalHint get() = t(
+        "Linki kuruma iletebilir, paylaşabilir veya kopyalayabilirsiniz.",
+        "You can share or copy the link for your organization."
+    )
+    val subscriptionRenewalOpen get() = t("Web sayfasını aç", "Open website")
+    val subscriptionBossPaymentHint get() = t(
+        "Devam etmek için linki bağlı olduğunuz kuruma iletebilirsiniz.",
+        "You can share the link with your organization to continue."
+    )
+    fun subscriptionRenewalShareMessage(url: String) = t(
+        "Shuttle Live üyelik devamı. Servis kodunuz linkte hazır:\n$url",
+        "Shuttle Live membership continuation. Your service code is in the link:\n$url"
+    )
+    val subscriptionLinkCopied get() = t("Link kopyalandı.", "Link copied.")
+    val subscriptionPaymentHint get() = t(
+        "Kurumunuz işlemi tamamladığında tarihler burada güncellenir.",
+        "Dates will update here once your organization completes the process."
+    )
+    val subscriptionPayment get() = t("Üyelik devamı", "Membership")
+    fun subscriptionExpiringSoonMessage(endDate: String, daysRemaining: Int) = when (daysRemaining) {
+        0 -> t(
+            "Üyeliğiniz bugün ($endDate) sona eriyor. Devam etmek için linki kuruma iletebilirsiniz.",
+            "Your membership ends today ($endDate). Share the link with your organization to continue."
+        )
+        1 -> t(
+            "Üyeliğiniz yarın ($endDate) sona eriyor. Devam etmek için linki kuruma iletebilirsiniz.",
+            "Your membership ends tomorrow ($endDate). Share the link with your organization to continue."
+        )
+        else -> t(
+            "Üyeliğiniz $endDate tarihinde sona eriyor ($daysRemaining gün kaldı). Devam etmek için linki kuruma iletebilirsiniz.",
+            "Your membership ends on $endDate ($daysRemaining days left). Share the link with your organization to continue."
+        )
+    }
+    fun subscriptionExpiringSoonSubtitle(daysRemaining: Int) = when (daysRemaining) {
+        0 -> t("Bugün bitiyor", "Expires today")
+        1 -> t("Yarın bitiyor", "Expires tomorrow")
+        else -> t("$daysRemaining gün kaldı", "$daysRemaining days left")
+    }
+    val close get() = t("Kapat", "Close")
+
     val holidayModeTitle get() = t("Tatil Modu", "Holiday Mode")
     val holidayModeOff get() = t("Kapalı", "Off")
     val holidayModeBadgeActive get() = t("AKTİF", "ON")

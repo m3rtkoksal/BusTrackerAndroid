@@ -72,6 +72,7 @@ fun DriverPassengersTab(
     onSendDelayNotice: (Int) -> Unit = {},
     onRequestForegroundPermission: () -> Unit = {},
     onRequestAlwaysPermission: () -> Unit = {},
+    subscriptionExpiringSoonMessage: String? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -112,6 +113,10 @@ fun DriverPassengersTab(
             isSendingDelayNotice = isSendingDelayNotice,
             onSendDelayNotice = onSendDelayNotice
         )
+
+        subscriptionExpiringSoonMessage?.let { message ->
+            SubscriptionExpiringSoonBanner(message = message)
+        }
 
         StatsGrid(
             stats = stats,

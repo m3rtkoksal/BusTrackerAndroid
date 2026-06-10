@@ -42,6 +42,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,6 +75,7 @@ import com.mikatechnology.BusTracker.ui.settings.LanguagePickerOverlay
 import com.mikatechnology.BusTracker.ui.settings.LanguageSettingsRow
 import com.mikatechnology.BusTracker.ui.settings.SettingsCardShape
 import com.mikatechnology.BusTracker.ui.settings.SettingsDeleteAccountLink
+import com.mikatechnology.BusTracker.ui.settings.SettingsNavigationRow
 import com.mikatechnology.BusTracker.ui.settings.SettingsSignOutRow
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 import com.mikatechnology.BusTracker.util.openAppSettings
@@ -111,6 +115,7 @@ fun DriverHomeView(
     var pendingTripAfterPermissions by remember { mutableStateOf(false) }
     var isRequestingFineLocation by remember { mutableStateOf(false) }
     var isRequestingMotion by remember { mutableStateOf(false) }
+    val subscriptionViewModel = remember { DriverSubscriptionViewModel() }
 
     val members by ShuttleStore.shared.members.collectAsStateWithLifecycle()
     val attendanceRevision by ShuttleStore.shared.attendanceRevision.collectAsStateWithLifecycle()
@@ -252,6 +257,10 @@ fun DriverHomeView(
         permissionScope.onDriverPermissionsUpdated()
     }
 
+    LaunchedEffect(profile.primaryGroupID) {
+        subscriptionViewModel.load(profile.primaryGroupID)
+    }
+
     LaunchedEffect(profile.groupID) {
         LocationTracker.initialize(context)
         MotionActivityService.initialize(context)
@@ -333,7 +342,8 @@ fun DriverHomeView(
                             onRequestAlwaysPermission = {
                                 permissionScope.setPendingTripAfterPermissions(true)
                                 permissionScope.continueStartTripPermissionFlow()
-                            }
+                            },
+                            subscriptionExpiringSoonMessage = subscriptionViewModel.expiringSoonMessage
                         )
 
                         DriverHomeTab.Map -> {
@@ -350,6 +360,7 @@ fun DriverHomeView(
 
                         DriverHomeTab.Settings -> DriverSettingsTab(
                             profile = profile,
+                            subscriptionViewModel = subscriptionViewModel,
                             displayName = members.firstOrNull { it.id == profile.memberID }?.name ?: profile.name,
                             currentLanguage = appLanguage,
                             onOpenLanguagePicker = { showLanguagePicker = true },
@@ -560,6 +571,7 @@ private fun DriverTopBar(
 @Composable
 fun DriverSettingsTab(
     profile: UserProfile,
+    subscriptionViewModel: DriverSubscriptionViewModel,
     displayName: String,
     currentLanguage: com.mikatechnology.BusTracker.localization.AppLanguage,
     onOpenLanguagePicker: () -> Unit,
@@ -569,39 +581,63 @@ fun DriverSettingsTab(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val navController = rememberNavController()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    NavHost(
+        navController = navController,
+        startDestination = "settings_root",
+        modifier = modifier.fillMaxSize()
     ) {
-        if (profile.groupCode.isNotBlank()) {
-            com.mikatechnology.BusTracker.ui.settings.SettingsServiceCodeRow(
-                code = profile.groupCode,
-                onClick = {
-                    val copied = com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.copy(
-                        context,
-                        profile.groupCode
+        composable("settings_root") {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (profile.groupCode.isNotBlank()) {
+                    com.mikatechnology.BusTracker.ui.settings.SettingsServiceCodeRow(
+                        code = profile.groupCode,
+                        onClick = {
+                            val copied = com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.copy(
+                                context,
+                                profile.groupCode
+                            )
+                            com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.showResult(context, copied)
+                        }
                     )
-                    com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.showResult(context, copied)
                 }
+                com.mikatechnology.BusTracker.ui.settings.SettingsEditableNameRow(
+                    title = L10n.settingsYourName,
+                    value = displayName,
+                    onSave = onUpdateName
+                )
+
+                SettingsNavigationRow(
+                    title = L10n.subscription,
+                    value = subscriptionViewModel.statusSubtitle,
+                    onClick = { navController.navigate("subscription") }
+                )
+
+                LanguageSettingsRow(
+                    currentLanguage = currentLanguage,
+                    onClick = onOpenLanguagePicker
+                )
+
+                SettingsSignOutRow(onClick = onSignOut)
+
+                SettingsDeleteAccountLink(onClick = onDeleteAccount)
+            }
+        }
+
+        composable("subscription") {
+            DriverSubscriptionScreen(
+                groupID = profile.primaryGroupID,
+                serviceCode = profile.groupCode,
+                viewModel = subscriptionViewModel,
+                onBack = { navController.popBackStack() }
             )
         }
-        com.mikatechnology.BusTracker.ui.settings.SettingsEditableNameRow(
-            title = L10n.settingsYourName,
-            value = displayName,
-            onSave = onUpdateName
-        )
-
-        LanguageSettingsRow(
-            currentLanguage = currentLanguage,
-            onClick = onOpenLanguagePicker
-        )
-
-        SettingsSignOutRow(onClick = onSignOut)
-
-        SettingsDeleteAccountLink(onClick = onDeleteAccount)
     }
 }
