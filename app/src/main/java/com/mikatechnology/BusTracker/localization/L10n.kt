@@ -50,6 +50,22 @@ object L10n {
     val startShuttle get() = t("SERVİSİ BAŞLAT", "START SHUTTLE")
     val sharingLocation get() = t("Konum paylaşılıyor", "Sharing location")
     val selectDurationOnStart get() = t("Başlatınca süre seçilir", "Duration is selected when starting")
+    val driverDelaySectionTitle get() = t("GECİKME BİLDİR", "NOTIFY DELAY")
+    val driverDelaySectionHint get() =
+        t("Yolculara gecikme süresini bildir (servis başına 1 kez)", "Notify passengers of delay (once per service)")
+    fun driverDelayChip(minutes: Int) = t("$minutes dk", "$minutes min")
+    fun driverDelaySent(minutes: Int) =
+        t("Gecikme bildirimi gönderildi (+$minutes dk)", "Delay notice sent (+$minutes min)")
+    val driverDelaySending get() = t("Gönderiliyor…", "Sending…")
+    val driverDelaySentSuccess get() = t("Gecikme bildirimi gönderildi", "Delay notice sent")
+    val driverDelayAlreadySent get() =
+        t("Bu servis için zaten gecikme bildirimi gönderildi", "Delay notice already sent for this service")
+    val driverDelayTripActive get() =
+        t("Servis aktifken gecikme bildirimi gönderilemez", "Cannot send delay notice while shuttle is active")
+    val driverDelayInvalidMinutes get() = t("Geçersiz gecikme süresi", "Invalid delay duration")
+    val driverDelaySendFailed get() = t("Gecikme bildirimi gönderilemedi", "Could not send delay notice")
+    fun passengerServiceDelayed(minutes: Int) =
+        t("Servis $minutes dakika gecikiyor", "Shuttle is delayed by $minutes minutes")
     val enableAlwaysLocation get() = t("Her zaman iznini aç", "Enable always location")
     val waitingForDriverLocation get() = t("Sürücü konumu bekleniyor", "Waiting for driver location")
     val shuttleNotStarted get() = t("Servis henüz başlamadı", "Shuttle has not started yet")

@@ -510,7 +510,6 @@ fun PassengerHomeView(
                                 }
                             },
                             onOpenHolidayModePicker = { showHolidayModePicker = true },
-                            onOpenMap = { tabController.select(PassengerHomeTab.Map) },
                             modifier = Modifier.fillMaxSize()
                         )
                     }

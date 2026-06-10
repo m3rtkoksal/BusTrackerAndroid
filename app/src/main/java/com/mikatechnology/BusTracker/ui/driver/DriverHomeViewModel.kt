@@ -28,6 +28,10 @@ class DriverHomeViewModel(
 
     private val shuttleStore = ShuttleStore.shared
     private var isTripBusy = false
+    private var isSendingDelayNotice = false
+
+    private val _isSendingDelayNotice = MutableStateFlow(false)
+    val isSendingDelayNoticeFlow: StateFlow<Boolean> = _isSendingDelayNotice.asStateFlow()
 
     private val _showTripDurationSheet = MutableStateFlow(false)
     val showTripDurationSheet: StateFlow<Boolean> = _showTripDurationSheet.asStateFlow()
@@ -150,6 +154,23 @@ class DriverHomeViewModel(
             } finally {
                 isTripBusy = false
                 setLoading(false)
+            }
+        }
+    }
+
+    fun sendDelayNotice(minutes: Int) {
+        if (isSendingDelayNotice) return
+        viewModelScope.launch {
+            isSendingDelayNotice = true
+            _isSendingDelayNotice.value = true
+            try {
+                shuttleStore.sendDelayNotice(profile.groupID, profile.name, minutes)
+                showSuccess(L10n.driverDelaySentSuccess)
+            } catch (error: Exception) {
+                showError(error.message ?: L10n.driverDelaySendFailed)
+            } finally {
+                isSendingDelayNotice = false
+                _isSendingDelayNotice.value = false
             }
         }
     }

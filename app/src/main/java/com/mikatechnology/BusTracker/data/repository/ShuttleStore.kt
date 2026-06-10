@@ -98,6 +98,23 @@ class ShuttleStore private constructor() {
     private val _attendanceRevision = MutableStateFlow(0)
     val attendanceRevision: StateFlow<Int> = _attendanceRevision.asStateFlow()
 
+    private val delayNoticeMinutesByServiceKey = mutableMapOf<String, Int>()
+    private var delayNoticeListeners: MutableMap<String, ListenerRegistration> = mutableMapOf()
+
+    private val _currentServiceDelayNoticeMinutes = MutableStateFlow<Int?>(null)
+    val currentServiceDelayNoticeMinutes: StateFlow<Int?> = _currentServiceDelayNoticeMinutes.asStateFlow()
+
+    private val _delayNoticeRevision = MutableStateFlow(0)
+    val delayNoticeRevision: StateFlow<Int> = _delayNoticeRevision.asStateFlow()
+
+    fun delayNoticeMinutesFor(dateKey: String): Int? = delayNoticeMinutesByServiceKey[dateKey]
+
+    private fun refreshCurrentServiceDelayNoticeMinutes() {
+        _currentServiceDelayNoticeMinutes.value =
+            delayNoticeMinutesByServiceKey[ServiceSchedule.currentDriverSession().dateKey]
+        _delayNoticeRevision.value += 1
+    }
+
     private val todayKey: String
         get() = HolidayMode.dateKey(Date())
 
@@ -139,6 +156,7 @@ class ShuttleStore private constructor() {
             }
 
         startAttendanceListeners(groupID)
+        startDelayNoticeListeners(groupID)
 
         canonicalRouteListener = db.collection("groups").document(groupID)
             .collection("canonicalRoutes")
@@ -170,6 +188,7 @@ class ShuttleStore private constructor() {
         routeListener?.remove()
         canonicalRouteListener?.remove()
         stopAttendanceListeners()
+        stopDelayNoticeListeners()
         morningPickupsListener?.remove()
         membersListener = null
         locationListener = null
@@ -586,6 +605,74 @@ class ShuttleStore private constructor() {
             listener.remove()
         }
         attendanceListeners.clear()
+    }
+
+    private fun listenDelayNotice(groupID: String, serviceKey: String): ListenerRegistration {
+        return db.collection("groups").document(groupID)
+            .collection("delayNotices").document(serviceKey)
+            .addSnapshotListener { snapshot, _ ->
+                val minutes = snapshot?.getLong("minutes")?.toInt()
+                if (minutes != null) {
+                    delayNoticeMinutesByServiceKey[serviceKey] = minutes
+                } else {
+                    delayNoticeMinutesByServiceKey.remove(serviceKey)
+                }
+                refreshCurrentServiceDelayNoticeMinutes()
+            }
+    }
+
+    private fun startDelayNoticeListeners(groupID: String) {
+        stopDelayNoticeListeners()
+
+        val serviceKeys = mutableSetOf<String>()
+        val (todayAm, todayPm) = ServiceSchedule.todayDateKeys()
+        serviceKeys.add(todayAm)
+        serviceKeys.add(todayPm)
+        serviceKeys.add(ServiceSchedule.currentDriverSession().dateKey)
+        for (service in ServiceSchedule.nextTwoServices()) {
+            serviceKeys.add(service.dateKey)
+        }
+
+        for (serviceKey in serviceKeys) {
+            delayNoticeListeners[serviceKey] = listenDelayNotice(groupID, serviceKey)
+        }
+    }
+
+    private fun stopDelayNoticeListeners() {
+        for ((_, listener) in delayNoticeListeners) {
+            listener.remove()
+        }
+        delayNoticeListeners.clear()
+        delayNoticeMinutesByServiceKey.clear()
+        _currentServiceDelayNoticeMinutes.value = null
+        _delayNoticeRevision.value = 0
+    }
+
+    suspend fun sendDelayNotice(groupID: String, driverName: String, minutes: Int) {
+        if (_isTripActive.value) {
+            throw IllegalStateException(L10n.driverDelayTripActive)
+        }
+        if (minutes !in DRIVER_DELAY_MINUTE_OPTIONS) {
+            throw IllegalArgumentException(L10n.driverDelayInvalidMinutes)
+        }
+        if (_currentServiceDelayNoticeMinutes.value != null) {
+            throw IllegalStateException(L10n.driverDelayAlreadySent)
+        }
+
+        val service = ServiceSchedule.currentDriverSession()
+        db.collection("groups").document(groupID)
+            .collection("tripEvents")
+            .add(
+                mapOf(
+                    "type" to "delay_notice",
+                    "serviceKey" to service.dateKey,
+                    "session" to service.session.suffix,
+                    "minutes" to minutes,
+                    "driverName" to driverName,
+                    "createdAt" to FieldValue.serverTimestamp()
+                )
+            )
+            .await()
     }
 
     private fun onAttendanceSnapshot(dateKey: String, data: Map<String, Any>?) {
@@ -1157,6 +1244,7 @@ class ShuttleStore private constructor() {
         private const val MIN_ROUTE_POINT_DISTANCE_METERS = 20f
         private const val MIN_ROUTE_HISTORY_POINT_COUNT = 5
         private const val PICKUP_REACH_RADIUS_METERS = 120f
+        val DRIVER_DELAY_MINUTE_OPTIONS = listOf(5, 10, 15, 30)
         val shared = ShuttleStore()
     }
 }

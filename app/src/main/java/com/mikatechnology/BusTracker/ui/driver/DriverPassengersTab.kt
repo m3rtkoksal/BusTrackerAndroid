@@ -67,6 +67,9 @@ fun DriverPassengersTab(
     locationAuthStatus: LocationAuthStatus,
     onToggleTrip: () -> Unit,
     onCopyCode: () -> Unit,
+    sentDelayMinutes: Int? = null,
+    isSendingDelayNotice: Boolean = false,
+    onSendDelayNotice: (Int) -> Unit = {},
     onRequestForegroundPermission: () -> Unit = {},
     onRequestAlwaysPermission: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -89,34 +92,6 @@ fun DriverPassengersTab(
             .padding(top = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(NeonTheme.Secondary)
-                )
-                Text(
-                    text = "SERVİS ADI",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 2.sp,
-                    color = NeonTheme.OnSurfaceVariant
-                )
-            }
-            Text(
-                text = profile.groupName.uppercase(),
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = NeonTheme.OnSurface,
-                letterSpacing = (-0.5).sp
-            )
-        }
-
         DriverServiceCodeCard(
             code = profile.groupCode,
             onCopy = onCopyCode,
@@ -132,7 +107,10 @@ fun DriverPassengersTab(
         TripControlSection(
             isTripActive = isTripActive,
             isBusy = isTripBusy,
-            onToggleTrip = onToggleTrip
+            onToggleTrip = onToggleTrip,
+            sentDelayMinutes = sentDelayMinutes,
+            isSendingDelayNotice = isSendingDelayNotice,
+            onSendDelayNotice = onSendDelayNotice
         )
 
         StatsGrid(
@@ -261,9 +239,13 @@ private fun CodeActionButton(
 private fun TripControlSection(
     isTripActive: Boolean,
     isBusy: Boolean,
-    onToggleTrip: () -> Unit
+    onToggleTrip: () -> Unit,
+    sentDelayMinutes: Int? = null,
+    isSendingDelayNotice: Boolean = false,
+    onSendDelayNotice: (Int) -> Unit = {}
 ) {
     val accent = if (isTripActive) DangerColor else NeonTheme.Primary
+    val chipsDisabled = sentDelayMinutes != null || isSendingDelayNotice
     Column(
         modifier = Modifier.padding(top = 4.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -292,7 +274,7 @@ private fun TripControlSection(
                     modifier = Modifier.size(22.dp)
                 )
                 Text(
-                    text = if (isTripActive) "SERVİSİ DURDUR" else "SERVİSİ BAŞLAT",
+                    text = if (isTripActive) L10n.stopShuttle else L10n.startShuttle,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 2.sp,
@@ -301,15 +283,89 @@ private fun TripControlSection(
                 )
             }
         }
+
+        if (!isTripActive) {
+            DriverDelayNoticeSection(
+                sentMinutes = sentDelayMinutes,
+                isSending = isSendingDelayNotice,
+                chipsDisabled = chipsDisabled,
+                onSelectMinutes = onSendDelayNotice
+            )
+        }
+
+        if (isTripActive || isSendingDelayNotice || sentDelayMinutes != null) {
+            Text(
+                text = when {
+                    isTripActive -> L10n.sharingLocation
+                    isSendingDelayNotice -> L10n.driverDelaySending
+                    else -> L10n.driverDelaySent(sentDelayMinutes!!)
+                },
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 2.sp,
+                color = if (sentDelayMinutes != null && !isTripActive) NeonTheme.Secondary else NeonTheme.Outline,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun DriverDelayNoticeSection(
+    sentMinutes: Int?,
+    isSending: Boolean,
+    chipsDisabled: Boolean,
+    onSelectMinutes: (Int) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            text = if (isTripActive) "Konum paylaşılıyor" else "Başlatma hazır",
+            text = L10n.driverDelaySectionTitle,
             fontSize = 10.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Bold,
             letterSpacing = 2.sp,
-            color = NeonTheme.Outline,
+            color = NeonTheme.Secondary,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            for (minutes in ShuttleStore.DRIVER_DELAY_MINUTE_OPTIONS) {
+                val chipAccent = if (chipsDisabled) NeonTheme.Outline else NeonTheme.OnSurface
+                Text(
+                    text = L10n.driverDelayChip(minutes),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = chipAccent.copy(alpha = if (chipsDisabled) 0.55f else 1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(enabled = !chipsDisabled, onClick = { onSelectMinutes(minutes) })
+                        .background(
+                            NeonTheme.SurfaceContainer.copy(alpha = if (chipsDisabled) 0.35f else 0.7f)
+                        )
+                        .border(
+                            1.dp,
+                            if (chipsDisabled) NeonTheme.Outline.copy(alpha = 0.35f)
+                            else NeonTheme.Secondary.copy(alpha = 0.5f)
+                        )
+                        .padding(vertical = 10.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        if (sentMinutes == null && !isSending) {
+            Text(
+                text = L10n.driverDelaySectionHint,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 1.sp,
+                color = NeonTheme.Outline,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 

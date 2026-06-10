@@ -21,7 +21,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -31,6 +31,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
@@ -50,8 +52,6 @@ import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.PassengerWeatherCardModel
 import com.mikatechnology.BusTracker.services.PassengerWeatherService
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
-import java.text.SimpleDateFormat
-import java.util.Locale
 
 private val WarningColor = Color(0xFFFFE04A)
 private val ErrorRed = Color(0xFFFF4444)
@@ -80,7 +80,6 @@ fun PassengerServiceTab(
     showComingBlockedWithoutPickupHint: Boolean = false,
     onAttendanceSelected: (UpcomingService, AttendanceStatus) -> Unit,
     onOpenHolidayModePicker: () -> Unit,
-    onOpenMap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -113,6 +112,10 @@ fun PassengerServiceTab(
     }
 
     val scrollState = rememberScrollState()
+    val delayNoticeRevision by ShuttleStore.shared.delayNoticeRevision.collectAsStateWithLifecycle()
+    val serviceDelayMinutes = remember(nearestUpcomingService, delayNoticeRevision) {
+        ShuttleStore.shared.delayNoticeMinutesFor(nearestUpcomingService.dateKey)
+    }
 
     Column(
         modifier = modifier
@@ -122,6 +125,10 @@ fun PassengerServiceTab(
             .padding(top = 24.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
+        if (serviceDelayMinutes != null) {
+            ServiceDelayNoticeSection(minutes = serviceDelayMinutes!!)
+        }
+
         Column(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -154,10 +161,12 @@ fun PassengerServiceTab(
             }
         }
 
-        NotComingPassengersSection(
-            service = nearestUpcomingService,
-            passengers = notComingPassengers
-        )
+        if (notComingPassengers.isNotEmpty()) {
+            NotComingPassengersSection(
+                service = nearestUpcomingService,
+                passengers = notComingPassengers
+            )
+        }
 
         HolidayModeServiceCard(
             isActive = isHolidayModeActive,
@@ -166,88 +175,37 @@ fun PassengerServiceTab(
             onClick = onOpenHolidayModePicker
         )
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(ServiceCardShape)
-                .background(NeonTheme.SurfaceContainer)
-                .border(
-                    width = 1.dp,
-                    color = NeonTheme.Outline.copy(alpha = 0.25f),
-                    shape = ServiceCardShape
-                )
-                .padding(16.dp)
-        ) {
-            Text(
-                text = L10n.pickupPoint,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 1.5.sp,
-                color = NeonTheme.OnSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (savedMorningPickup != null) {
-                val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(savedMorningPickup.updatedAt)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = NeonTheme.Secondary
-                    )
-                    Text(
-                        text = L10n.savedAt(time),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = NeonTheme.Secondary,
-                        modifier = Modifier.padding(start = 6.dp)
-                    )
-                }
-            } else {
-                Text(
-                    text = L10n.noPickupSaved,
-                    color = NeonTheme.OnSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(ServiceCardShape)
-                    .background(NeonTheme.SurfaceContainerHigh)
-                    .border(
-                        width = 1.dp,
-                        color = NeonTheme.Secondary.copy(alpha = 0.45f),
-                        shape = ServiceCardShape
-                    )
-                    .clickable { onOpenMap() }
-                    .padding(vertical = 14.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Map,
-                    contentDescription = null,
-                    tint = NeonTheme.Secondary
-                )
-                Text(
-                    text = if (savedMorningPickup == null) L10n.setOnMap else L10n.editOnMap,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 1.sp,
-                    color = NeonTheme.Secondary,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-        }
-
         PassengerClothingAdviceCard(
             model = pickupWeather,
             isLoading = weatherLatitude != null && weatherLongitude != null && pickupWeatherLoading,
             emptyMessage = if (weatherLatitude == null || weatherLongitude == null) L10n.weatherNeedsPickup else null
+        )
+    }
+}
+
+@Composable
+private fun ServiceDelayNoticeSection(minutes: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(ServiceCardShape)
+            .background(WarningColor.copy(alpha = 0.1f))
+            .border(1.5.dp, WarningColor.copy(alpha = 0.45f), ServiceCardShape)
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Schedule,
+            contentDescription = null,
+            tint = WarningColor,
+            modifier = Modifier.size(22.dp)
+        )
+        Text(
+            text = L10n.passengerServiceDelayed(minutes),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = NeonTheme.OnSurface
         )
     }
 }
@@ -288,52 +246,44 @@ private fun NotComingPassengersSection(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (passengers.isEmpty()) {
-            Text(
-                text = L10n.serviceNotComingListEmpty,
-                fontSize = 14.sp,
-                color = NeonTheme.OnSurfaceVariant
-            )
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(
-                        width = 2.dp,
-                        color = NeonTheme.OnSurfaceVariant.copy(alpha = 0.7f),
-                        shape = ServiceCardShape
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 2.dp,
+                    color = NeonTheme.OnSurfaceVariant.copy(alpha = 0.7f),
+                    shape = ServiceCardShape
+                )
+        ) {
+            passengers.forEachIndexed { index, member ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(NeonTheme.SurfaceContainer.copy(alpha = 0.6f))
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        tint = ErrorRed,
+                        modifier = Modifier.size(18.dp)
                     )
-            ) {
-                passengers.forEachIndexed { index, member ->
-                    Row(
+                    Text(
+                        text = member.name,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = NeonTheme.OnSurface,
+                        modifier = Modifier.padding(start = 12.dp)
+                    )
+                }
+                if (index < passengers.lastIndex) {
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(NeonTheme.SurfaceContainer.copy(alpha = 0.6f))
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = null,
-                            tint = ErrorRed,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = member.name,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = NeonTheme.OnSurface,
-                            modifier = Modifier.padding(start = 12.dp)
-                        )
-                    }
-                    if (index < passengers.lastIndex) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.5.dp)
-                                .background(NeonTheme.OnSurfaceVariant.copy(alpha = 0.45f))
-                        )
-                    }
+                            .height(1.5.dp)
+                            .background(NeonTheme.OnSurfaceVariant.copy(alpha = 0.45f))
+                    )
                 }
             }
         }

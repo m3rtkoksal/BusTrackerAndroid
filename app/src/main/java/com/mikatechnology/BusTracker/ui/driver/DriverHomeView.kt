@@ -122,6 +122,8 @@ fun DriverHomeView(
     val locationAuthStatus by LocationTracker.authorizationStatus.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val showTripDurationSheet by viewModel.showTripDurationSheet.collectAsStateWithLifecycle()
+    val sentDelayMinutes by ShuttleStore.shared.currentServiceDelayNoticeMinutes.collectAsStateWithLifecycle()
+    val isSendingDelayNotice by viewModel.isSendingDelayNoticeFlow.collectAsStateWithLifecycle()
 
     val passengers = members.filter { it.role == MemberRole.Passenger }
     val stats = remember(members, attendanceRevision) { viewModel.passengerStats(members) }
@@ -310,6 +312,9 @@ fun DriverHomeView(
                             isTripActive = isTripActive,
                             isTripBusy = uiState.isLoading,
                             locationAuthStatus = locationAuthStatus,
+                            sentDelayMinutes = sentDelayMinutes,
+                            isSendingDelayNotice = isSendingDelayNotice,
+                            onSendDelayNotice = viewModel::sendDelayNotice,
                             onToggleTrip = {
                                 if (isTripActive) {
                                     viewModel.handleTripControlTap(true)
