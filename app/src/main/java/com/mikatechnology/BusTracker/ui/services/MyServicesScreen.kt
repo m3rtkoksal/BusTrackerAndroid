@@ -31,6 +31,7 @@ import com.mikatechnology.BusTracker.data.repository.ShuttleError
 import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
+import com.mikatechnology.BusTracker.data.smler.SmlerConfig
 import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.NotificationService
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
@@ -41,6 +42,9 @@ private val MyServicesCardShape = RectangleShape
 @Composable
 fun MyServicesScreen(
     onBack: () -> Unit = {},
+    initialServiceCode: String = "",
+    openAddServiceOnAppear: Boolean = false,
+    onInviteHandled: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -56,6 +60,17 @@ fun MyServicesScreen(
     var joinSuccessMessage by remember { mutableStateOf<String?>(null) }
     val isTripActive by store.isTripActive.collectAsStateWithLifecycle()
     val activeTripGroupID by store.currentActiveTripGroupID.collectAsStateWithLifecycle()
+
+    LaunchedEffect(openAddServiceOnAppear, initialServiceCode) {
+        if (!openAddServiceOnAppear) return@LaunchedEffect
+        val code = SmlerConfig.normalizedCode(initialServiceCode)
+        if (code.length >= 4) {
+            addServiceCode = code
+            addServiceError = null
+            showAddServiceSheet = true
+            onInviteHandled()
+        }
+    }
 
     // Build services from real profile data
     val allServices = buildServicesFromProfile(profile)

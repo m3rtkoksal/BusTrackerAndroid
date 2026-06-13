@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import com.mikatechnology.BusTracker.data.smler.SmlerDeepLinkService
 import com.mikatechnology.BusTracker.localization.LanguageManager
 import java.util.Locale
 
@@ -47,6 +48,7 @@ class BusTrackerApplication : Application() {
             AnalyticsDebugStatus.logDebugViewHint(packageName, BuildConfig.DEBUG)
         }
         LanguageManager.initialize(this)
+        SmlerDeepLinkService.initialize(this)
         AuthRepository.ensureConfigured()
         NotificationService.createNotificationChannels(this)
         LocationTracker.initialize(this)

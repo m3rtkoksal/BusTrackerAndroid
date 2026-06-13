@@ -21,6 +21,11 @@ fun readMapsApiKey(): String {
     return match?.groupValues?.get(1).orEmpty()
 }
 
+fun readSmlerApiKey(): String {
+    localProperties.getProperty("SMLER_API_KEY")?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+    return "IhhHknxn6ycRmkV9dUhnjJ1elTml328WJ0cUDNv_NPA26StpSuB-9IeTWTcHuq7w"
+}
+
 val keystoreProperties = Properties().apply {
     val keystorePropertiesFile = rootProject.file("keystore.properties")
     if (keystorePropertiesFile.exists()) {
@@ -40,14 +45,15 @@ android {
         applicationId = "com.mikatechnology.BusTracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 18
-        versionName = "1.3.1"
+        versionCode = 19
+        versionName = "1.3.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val mapsApiKey = readMapsApiKey()
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
+        buildConfigField("String", "SMLER_API_KEY", "\"${readSmlerApiKey()}\"")
     }
 
     signingConfigs {

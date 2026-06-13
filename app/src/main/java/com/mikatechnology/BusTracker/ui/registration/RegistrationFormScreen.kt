@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mikatechnology.BusTracker.auth.GoogleSignInHelper
 import com.mikatechnology.BusTracker.base.BaseViewShell
 import com.mikatechnology.BusTracker.data.model.MemberRole
+import com.mikatechnology.BusTracker.data.smler.SmlerInviteCoordinator
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.localization.L10n
@@ -43,6 +44,7 @@ fun RegistrationFormScreen(
     val shuttleLoading by ShuttleRepository.shared.isLoading.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val serviceFieldError by viewModel.serviceFieldError.collectAsStateWithLifecycle()
+    val pendingInviteCode by SmlerInviteCoordinator.pendingRegistrationCode.collectAsStateWithLifecycle()
     val isBusy = authLoading || shuttleLoading || uiState.isLoading
     val canTapGoogleSignIn = activity != null && !isBusy
 
@@ -53,6 +55,13 @@ fun RegistrationFormScreen(
     ) { result ->
         // Google Sign-In often returns RESULT_CANCELED even on success; parse the Intent instead.
         viewModel.createAccountWithGoogle(context, result.data)
+    }
+
+    LaunchedEffect(role, pendingInviteCode) {
+        if (role != MemberRole.Passenger) return@LaunchedEffect
+        val code = pendingInviteCode ?: return@LaunchedEffect
+        viewModel.applyPrefillServiceCode(code)
+        SmlerInviteCoordinator.consumeRegistrationInvite(context)
     }
 
     BaseViewShell(viewModel = viewModel, modifier = modifier) {

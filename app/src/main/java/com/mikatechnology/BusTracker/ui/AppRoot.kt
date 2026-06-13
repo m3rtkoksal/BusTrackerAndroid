@@ -2,7 +2,10 @@ package com.mikatechnology.BusTracker.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -18,7 +21,9 @@ import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.repository.AuthRepository
 import com.mikatechnology.BusTracker.data.repository.ShuttleRepository
 import com.mikatechnology.BusTracker.data.repository.UserSessionRepository
+import com.mikatechnology.BusTracker.data.smler.SmlerInviteCoordinator
 import com.mikatechnology.BusTracker.localization.LanguageManager
+import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.driver.DriverHomeView
 import com.mikatechnology.BusTracker.ui.passenger.PassengerHomeView
 import com.mikatechnology.BusTracker.ui.registration.RegistrationFlowScreen
@@ -30,6 +35,8 @@ fun AppRoot() {
     val profile by UserSessionRepository.profile.collectAsStateWithLifecycle()
     val isSessionLoaded by UserSessionRepository.isSessionLoaded.collectAsStateWithLifecycle()
     val appLanguage by LanguageManager.language.collectAsStateWithLifecycle()
+    val alreadyMemberMessage by SmlerInviteCoordinator.alreadyMemberMessage.collectAsStateWithLifecycle()
+    val inviteRevision by SmlerInviteCoordinator.inviteRevision.collectAsStateWithLifecycle()
 
     var showLogin by remember { mutableStateOf(false) }
 
@@ -50,6 +57,26 @@ fun AppRoot() {
         } catch (_: Exception) {
             // Ağ hatası: yerel oturumu koru.
         }
+    }
+
+    LaunchedEffect(inviteRevision, profile?.userID) {
+        SmlerInviteCoordinator.handleIfReady(
+            profile = profile,
+            isSignedIn = AuthRepository.isSignedIn
+        )
+    }
+
+    if (alreadyMemberMessage != null) {
+        AlertDialog(
+            onDismissRequest = { SmlerInviteCoordinator.dismissAlreadyMemberMessage() },
+            title = { Text(L10n.shuttleInvite) },
+            text = { Text(alreadyMemberMessage.orEmpty()) },
+            confirmButton = {
+                TextButton(onClick = { SmlerInviteCoordinator.dismissAlreadyMemberMessage() }) {
+                    Text(L10n.ok)
+                }
+            }
+        )
     }
 
     AppPermissionsHandler(

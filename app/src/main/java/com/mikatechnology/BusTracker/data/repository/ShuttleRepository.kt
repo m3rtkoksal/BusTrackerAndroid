@@ -192,6 +192,17 @@ class ShuttleRepository {
         }
     }
 
+    suspend fun resolveGroupIDForCode(code: String): String? {
+        val trimmedCode = code.trim().uppercase()
+        if (trimmedCode.length < 4) return null
+        val snapshot = db.collection("groups")
+            .whereEqualTo("code", trimmedCode)
+            .limit(1)
+            .get()
+            .await()
+        return snapshot.documents.firstOrNull()?.id
+    }
+
     suspend fun joinGroup(code: String, passengerName: String): UserProfile {
         val user = auth.currentUser ?: throw ShuttleError.NotAuthenticated()
         val authUserId = AuthRepository.resolveAuthUserId()

@@ -607,6 +607,12 @@ fun DriverSettingsTab(
                             com.mikatechnology.BusTracker.ui.settings.CopyServiceCode.showResult(context, copied)
                         }
                     )
+                    com.mikatechnology.BusTracker.ui.settings.SettingsInviteShareRow(
+                        serviceCode = profile.groupCode,
+                        onError = { message ->
+                            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    )
                 }
                 com.mikatechnology.BusTracker.ui.settings.SettingsEditableNameRow(
                     title = L10n.settingsYourName,

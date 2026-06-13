@@ -57,6 +57,7 @@ import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.data.model.effectiveAttendance
 import com.mikatechnology.BusTracker.data.model.isHolidayModeActive
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
+import com.mikatechnology.BusTracker.data.smler.SmlerInviteCoordinator
 import com.mikatechnology.BusTracker.services.MotionActivityRole
 import com.mikatechnology.BusTracker.services.MotionActivityService
 import com.mikatechnology.BusTracker.services.NotificationService
@@ -204,6 +205,17 @@ fun PassengerHomeView(
     }
 
     var showMyServices by remember { mutableStateOf(false) }
+    var smlerInviteServiceCode by remember { mutableStateOf("") }
+    var openMyServicesForInvite by remember { mutableStateOf(false) }
+    val pendingAddServiceCode by SmlerInviteCoordinator.pendingAddServiceCode.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingAddServiceCode) {
+        pendingAddServiceCode?.let { code ->
+            smlerInviteServiceCode = code
+            openMyServicesForInvite = true
+            showMyServices = true
+        }
+    }
+
     var showLanguagePicker by remember { mutableStateOf(false) }
     var showHolidayModePicker by remember { mutableStateOf(false) }
     var showSparseModeSuggestionSheet by remember { mutableStateOf(false) }
@@ -573,7 +585,13 @@ fun PassengerHomeView(
 
             if (showMyServices) {
                 MyServicesScreen(
-                    onBack = { showMyServices = false },
+                    onBack = {
+                        showMyServices = false
+                        openMyServicesForInvite = false
+                    },
+                    initialServiceCode = smlerInviteServiceCode,
+                    openAddServiceOnAppear = openMyServicesForInvite,
+                    onInviteHandled = { SmlerInviteCoordinator.clearAddServicePending() },
                     modifier = Modifier
                         .fillMaxSize()
                         .zIndex(2f)

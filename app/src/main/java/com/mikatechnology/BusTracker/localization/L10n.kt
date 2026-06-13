@@ -458,12 +458,34 @@ object L10n {
     val firebaseNotReadyShort get() = t("Firebase hazır değil.", "Firebase is not ready.")
     val signInWithPhone get() = t("Telefon ile giriş yapın.", "Sign in with your phone.")
     val invalidServiceCode get() = t("Geçerli bir servis kodu yok.", "No valid shuttle code.")
+    val smlerAPIKeyMissingInfo get() = t(
+        "Smler API anahtarı tanımlı değil. local.properties → SMLER_API_KEY alanına dashboard'daki API key'i yapıştırın.",
+        "Smler API key is not configured. Paste the dashboard API key into local.properties → SMLER_API_KEY."
+    )
     val smlerAPIKeyMissing get() = t("Smler API anahtarı eksik.", "Smler API key is missing.")
     val smlerAPIInvalid get() = t("Smler API adresi geçersiz.", "Smler API URL is invalid.")
     val smlerNoResponse get() = t("Smler yanıt vermedi.", "Smler did not respond.")
+    fun smlerLinkFailed(statusCode: Int, detail: String) = t(
+        "Smler link oluşturulamadı ($statusCode): $detail",
+        "Could not create Smler link ($statusCode): $detail"
+    )
+    val smlerShortLinkMissing get() = t(
+        "Smler kısa link adresi alınamadı. Logcat'teki response body'ye bakın.",
+        "Could not get Smler short link URL. Check the response body in Logcat."
+    )
+    fun connectionErrorDetail(message: String) = t("Bağlantı hatası: $message", "Connection error: $message")
     val apiURLNotFound get() = t("API adresi bulunamadı.", "API URL not found.")
+    val checkLogcat get() = t("Ayrıntı için Logcat [Smler] satırlarına bakın.", "See Logcat [Smler] lines for details.")
     val smlerShareTitle get() = t("Shuttle Live servis daveti", "Shuttle Live shuttle invite")
+    fun smlerShareBody(code: String, url: String) = t(
+        "Servis kodu: $code\n$url",
+        "Shuttle code: $code\n$url"
+    )
     val smlerOGTitle get() = t("Shuttle Live — Servis daveti", "Shuttle Live — Shuttle invite")
+    val smlerOGDescription get() = t(
+        "Resmi Shuttle Live uygulaması. Servis kodunuzla güvenle katılın. Google Play'den indirin.",
+        "Official Shuttle Live app. Join safely with your shuttle code. Get it on Google Play."
+    )
 
     val waitingForPassengersHint get() = t("Yolcular yukarıdaki servis kodunu kullanarak katıldığında burada görünecek.", "Passengers will appear here when they join using the shuttle code above.")
     val backgroundLocationWarning get() = t("Arka planda konum paylaşımı için \"Her zaman\" iznini açın.", "Enable \"Always\" location permission for background sharing.")

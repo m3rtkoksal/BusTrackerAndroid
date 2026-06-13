@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
@@ -48,11 +49,14 @@ import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.ShuttleMember
 import com.mikatechnology.BusTracker.data.repository.ShuttleStore
 import com.mikatechnology.BusTracker.data.model.UserProfile
+import com.mikatechnology.BusTracker.data.smler.SmlerDeepLinkService
+import com.mikatechnology.BusTracker.data.smler.SmlerShareOutcome
 import com.mikatechnology.BusTracker.services.LocationAuthStatus
 import com.mikatechnology.BusTracker.services.LocationPermissionRole
 import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 import com.mikatechnology.BusTracker.util.openAppSettings
+import kotlinx.coroutines.launch
 
 private val DangerColor = NeonTheme.Error
 private val WarningColor = androidx.compose.ui.graphics.Color(0xFFFFE04A)
@@ -76,6 +80,8 @@ fun DriverPassengersTab(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isSharingInvite by remember { mutableStateOf(false) }
     val attendanceRevision by ShuttleStore.shared.attendanceRevision.collectAsStateWithLifecycle()
     var showOnlyNotComing by remember { mutableStateOf(false) }
     val displayedPassengers = remember(passengers, showOnlyNotComing, attendanceRevision) {
@@ -95,13 +101,33 @@ fun DriverPassengersTab(
     ) {
         DriverServiceCodeCard(
             code = profile.groupCode,
+            isSharing = isSharingInvite,
             onCopy = onCopyCode,
             onShare = {
-                val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, "Servis kodu: ${profile.groupCode}")
+                if (isSharingInvite) return@DriverServiceCodeCard
+                isSharingInvite = true
+                scope.launch {
+                    try {
+                        when (val outcome = SmlerDeepLinkService.prepareShare(profile.groupCode)) {
+                            is SmlerShareOutcome.Success -> {
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, outcome.message)
+                                }
+                                context.startActivity(Intent.createChooser(sendIntent, null))
+                            }
+                            is SmlerShareOutcome.Failure -> {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    outcome.error,
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    } finally {
+                        isSharingInvite = false
+                    }
                 }
-                context.startActivity(Intent.createChooser(sendIntent, null))
             }
         )
 
@@ -157,6 +183,7 @@ fun DriverPassengersTab(
 @Composable
 private fun DriverServiceCodeCard(
     code: String,
+    isSharing: Boolean,
     onCopy: () -> Unit,
     onShare: () -> Unit
 ) {
@@ -170,7 +197,7 @@ private fun DriverServiceCodeCard(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "SERVİS KODU",
+            text = L10n.serviceCodeLabel,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 3.sp,
@@ -189,19 +216,21 @@ private fun DriverServiceCodeCard(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             CodeActionButton(
-                title = "Paylaş",
+                title = if (isSharing) L10n.preparing else L10n.share,
                 icon = Icons.Default.Share,
                 accent = NeonTheme.Primary,
                 filled = true,
                 modifier = Modifier.weight(1f),
+                enabled = !isSharing,
                 onClick = onShare
             )
             CodeActionButton(
-                title = "Kopyala",
+                title = L10n.copy,
                 icon = Icons.Default.ContentCopy,
                 accent = NeonTheme.OnSurfaceVariant,
                 filled = false,
                 modifier = Modifier.weight(1f),
+                enabled = !isSharing,
                 onClick = onCopy
             )
         }
@@ -215,11 +244,12 @@ private fun CodeActionButton(
     accent: androidx.compose.ui.graphics.Color,
     filled: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Row(
         modifier = modifier
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .background(
                 if (filled) NeonTheme.Primary.copy(alpha = 0.1f) else NeonTheme.SurfaceContainer
             )

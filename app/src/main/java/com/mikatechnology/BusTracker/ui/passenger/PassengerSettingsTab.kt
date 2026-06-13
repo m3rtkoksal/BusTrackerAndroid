@@ -65,6 +65,12 @@ fun PassengerSettingsTab(
                     CopyServiceCode.showResult(context, copied)
                 }
             )
+            com.mikatechnology.BusTracker.ui.settings.SettingsInviteShareRow(
+                serviceCode = profile.groupCode,
+                onError = { message ->
+                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+                }
+            )
         }
 
         SettingsEditableNameRow(
