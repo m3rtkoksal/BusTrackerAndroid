@@ -70,6 +70,8 @@ import com.mikatechnology.BusTracker.services.LocationTracker
 import com.mikatechnology.BusTracker.ui.driver.DriverLocationForegroundGuideSheet
 import com.mikatechnology.BusTracker.ui.driver.DriverMotionGuideSheet
 import com.mikatechnology.BusTracker.ui.driver.DriverNotificationGuideSheet
+import com.mikatechnology.BusTracker.ui.driver.DriverSubscriptionViewModel
+import com.mikatechnology.BusTracker.ui.driver.SubscriptionGateOverlay
 import com.mikatechnology.BusTracker.util.openAppSettings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -122,6 +124,8 @@ fun PassengerHomeView(
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
+    val subscriptionViewModel = remember { DriverSubscriptionViewModel() }
+    var showSubscriptionGate by remember { mutableStateOf(false) }
 
     // İzin yönetimi
     val permissionManager = remember { PassengerActionPermissionManager() }
@@ -340,6 +344,10 @@ fun PassengerHomeView(
         viewModel.onAppear(profile.primaryGroupID)
     }
 
+    LaunchedEffect(profile.primaryGroupID) {
+        subscriptionViewModel.load(profile.primaryGroupID)
+    }
+
     LaunchedEffect(profile.primaryGroupID, profile.memberID) {
         updatePassengerMotionMonitoring(
             context = context,
@@ -513,6 +521,7 @@ fun PassengerHomeView(
                             isHolidayModeActive = isHolidayModeActive,
                             holidayModeSubtitle = holidayModeSubtitle,
                             holidayModeDetailLine = holidayModeDetailLine,
+                            capabilities = subscriptionViewModel.poolState.capabilities,
                             showComingBlockedWithoutPickupHint = showComingBlockedWithoutPickupHint,
                             onAttendanceSelected = { service, status ->
                                 if (status == AttendanceStatus.Coming) {
@@ -522,6 +531,10 @@ fun PassengerHomeView(
                                 }
                             },
                             onOpenHolidayModePicker = { showHolidayModePicker = true },
+                            onShowSubscriptionGate = { showSubscriptionGate = true },
+                            onGoToSubscription = {
+                                tabController.select(PassengerHomeTab.Settings)
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -541,10 +554,17 @@ fun PassengerHomeView(
                             onAttendanceClick = { tabController.select(PassengerHomeTab.Service) },
                             isTripActive = isTripActive,
                             isSaving = isSavingPickup,
+                            isPickupLocked = !subscriptionViewModel.poolState.capabilities.canSavePickupLocation,
                             onMapClick = { latLng ->
                                 viewModel.selectDraftCoordinate(latLng)
                             },
-                            onSavePickup = { requestSaveMorningPickup() }
+                            onSavePickup = {
+                                if (!subscriptionViewModel.poolState.capabilities.canSavePickupLocation) {
+                                    showSubscriptionGate = true
+                                } else {
+                                    requestSaveMorningPickup()
+                                }
+                            }
                         )
                     }
 
@@ -553,6 +573,7 @@ fun PassengerHomeView(
                             profile = profile,
                             displayName = myMember?.name ?: profile.name,
                             currentLanguage = appLanguage,
+                            subscriptionViewModel = subscriptionViewModel,
                             onOpenLanguagePicker = { showLanguagePicker = true },
                             onOpenMyServices = { showMyServices = true },
                             onUpdateName = { newName ->
@@ -750,6 +771,23 @@ fun PassengerHomeView(
                         }
                     }
                 }
+            }
+
+            AnimatedVisibility(
+                visible = showSubscriptionGate,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(6f)
+            ) {
+                SubscriptionGateOverlay(
+                    onDismiss = { showSubscriptionGate = false },
+                    onGoToSubscription = {
+                        showSubscriptionGate = false
+                        tabController.select(PassengerHomeTab.Settings)
+                    }
+                )
             }
         }
     }

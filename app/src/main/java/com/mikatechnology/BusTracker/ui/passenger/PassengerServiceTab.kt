@@ -43,14 +43,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.Lock
 import com.mikatechnology.BusTracker.data.model.AttendanceStatus
 import com.mikatechnology.BusTracker.data.model.MorningPickup
+import com.mikatechnology.BusTracker.data.model.ShuttleCapabilities
 import com.mikatechnology.BusTracker.data.model.ShuttleMember
 import com.mikatechnology.BusTracker.data.model.UpcomingService
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import com.mikatechnology.BusTracker.localization.L10n
 import com.mikatechnology.BusTracker.services.PassengerWeatherCardModel
 import com.mikatechnology.BusTracker.services.PassengerWeatherService
+import com.mikatechnology.BusTracker.ui.driver.SubscriptionExpiringBanner
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
 
 private val WarningColor = Color(0xFFFFE04A)
@@ -77,9 +80,12 @@ fun PassengerServiceTab(
     isHolidayModeActive: Boolean,
     holidayModeSubtitle: String,
     holidayModeDetailLine: String,
+    capabilities: ShuttleCapabilities,
     showComingBlockedWithoutPickupHint: Boolean = false,
     onAttendanceSelected: (UpcomingService, AttendanceStatus) -> Unit,
     onOpenHolidayModePicker: () -> Unit,
+    onShowSubscriptionGate: () -> Unit,
+    onGoToSubscription: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -125,6 +131,13 @@ fun PassengerServiceTab(
             .padding(top = 24.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
+        if (capabilities.isExpiringSoon && capabilities.daysRemaining != null) {
+            SubscriptionExpiringBanner(
+                daysRemaining = capabilities.daysRemaining!!,
+                onTap = onGoToSubscription
+            )
+        }
+
         if (serviceDelayMinutes != null) {
             ServiceDelayNoticeSection(minutes = serviceDelayMinutes!!)
         }
@@ -137,7 +150,14 @@ fun PassengerServiceTab(
                     state = state,
                     isHolidayModeActive = isHolidayModeActive,
                     isUpdatingAttendance = isUpdatingAttendance,
-                    onAttendanceSelected = { status -> onAttendanceSelected(state.service, status) }
+                    isLocked = !capabilities.canSetAttendance,
+                    onAttendanceSelected = { status ->
+                        if (!capabilities.canSetAttendance) {
+                            onShowSubscriptionGate()
+                        } else {
+                            onAttendanceSelected(state.service, status)
+                        }
+                    }
                 )
             }
 
@@ -172,7 +192,14 @@ fun PassengerServiceTab(
             isActive = isHolidayModeActive,
             subtitle = holidayModeSubtitle,
             detailLine = holidayModeDetailLine,
-            onClick = onOpenHolidayModePicker
+            isLocked = !capabilities.canSetHolidayMode,
+            onClick = {
+                if (!capabilities.canSetHolidayMode) {
+                    onShowSubscriptionGate()
+                } else {
+                    onOpenHolidayModePicker()
+                }
+            }
         )
 
         PassengerClothingAdviceCard(
@@ -295,6 +322,7 @@ private fun ServiceAttendanceCard(
     state: ServiceAttendanceState,
     isHolidayModeActive: Boolean,
     isUpdatingAttendance: Boolean,
+    isLocked: Boolean = false,
     onAttendanceSelected: (AttendanceStatus) -> Unit
 ) {
     val showChoice = state.rawAttendance != AttendanceStatus.Unknown ||
@@ -387,6 +415,7 @@ private fun ServiceAttendanceCard(
                 isSelected = comingSelected,
                 isLoading = isUpdatingAttendance && !comingSelected,
                 enabled = true,
+                isLocked = isLocked,
                 onClick = { onAttendanceSelected(AttendanceStatus.Coming) },
                 modifier = Modifier.weight(1f)
             )
@@ -398,6 +427,7 @@ private fun ServiceAttendanceCard(
                 isSelected = notComingSelected,
                 isLoading = isUpdatingAttendance && !notComingSelected,
                 enabled = true,
+                isLocked = isLocked,
                 onClick = { onAttendanceSelected(AttendanceStatus.NotComing) },
                 modifier = Modifier.weight(1f)
             )
@@ -413,17 +443,19 @@ private fun AttendanceButton(
     isSelected: Boolean,
     isLoading: Boolean,
     enabled: Boolean,
+    isLocked: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val bg = if (isSelected) accent.copy(alpha = 0.12f) else NeonTheme.SurfaceContainerHigh.copy(alpha = 0.85f)
     val borderColor = if (isSelected) accent.copy(alpha = 0.55f) else NeonTheme.Outline.copy(alpha = 0.25f)
     val contentColor = if (isSelected) accent else NeonTheme.OnSurfaceVariant
+    val alpha = if (isLocked) 0.5f else 1f
 
     Column(
         modifier = modifier
             .clip(ServiceCardShape)
-            .background(bg)
+            .background(bg.copy(alpha = bg.alpha * alpha))
             .border(if (isSelected) 2.dp else 1.dp, borderColor, ServiceCardShape)
             .clickable(enabled = enabled && !isLoading) { onClick() }
             .padding(vertical = 18.dp),
@@ -436,21 +468,33 @@ private fun AttendanceButton(
                 modifier = Modifier.size(26.dp)
             )
         } else {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier
-                    .size(26.dp)
-                    .shadow(if (isSelected) 8.dp else 0.dp, spotColor = if (isSelected) accent.copy(alpha = 0.65f) else Color.Transparent)
-            )
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = contentColor.copy(alpha = contentColor.alpha * alpha),
+                    modifier = Modifier
+                        .size(26.dp)
+                        .shadow(if (isSelected) 8.dp else 0.dp, spotColor = if (isSelected) accent.copy(alpha = 0.65f) else Color.Transparent)
+                )
+                if (isLocked) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = NeonTheme.OnSurfaceVariant,
+                        modifier = Modifier
+                            .size(10.dp)
+                            .align(Alignment.TopEnd)
+                    )
+                }
+            }
         }
         Text(
             text = title,
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.2.sp,
-            color = contentColor,
+            color = contentColor.copy(alpha = contentColor.alpha * alpha),
             modifier = Modifier.padding(top = 8.dp)
         )
     }

@@ -10,7 +10,8 @@ data class DriverSubscriptionInfo(
     val startDate: Date? = null,
     val endDate: Date? = null
 ) {
-    val isActive: Boolean
+    /** Subscription is active (endDate >= today). */
+    val hasFullFeatures: Boolean
         get() {
             val end = endDate ?: return false
             val todayKey = HolidayMode.dateKey(Date())
@@ -18,24 +19,30 @@ data class DriverSubscriptionInfo(
             return endKey >= todayKey
         }
 
+    /** Alias for hasFullFeatures. */
+    val isServiceOperational: Boolean
+        get() = hasFullFeatures
+
+    val isActive: Boolean
+        get() = hasFullFeatures
+
     val daysRemaining: Int?
         get() {
             val end = endDate ?: return null
-            if (!isActive) return null
             val today = HolidayMode.dateFromKey(HolidayMode.dateKey(Date())) ?: return null
             val endDay = HolidayMode.dateFromKey(HolidayMode.dateKey(end)) ?: return null
             val diffMs = endDay.time - today.time
             return (diffMs / (24 * 60 * 60 * 1000)).toInt()
         }
 
+    /** Subscription expires within 2 days. */
     val isExpiringSoon: Boolean
         get() {
             val days = daysRemaining ?: return false
-            return days in 0..EXPIRING_SOON_DAYS
+            return days in 0..ShuttlePoolConfig.expiringSoonDays
         }
 
     companion object {
-        const val EXPIRING_SOON_DAYS = 7
         val Empty = DriverSubscriptionInfo()
     }
 }

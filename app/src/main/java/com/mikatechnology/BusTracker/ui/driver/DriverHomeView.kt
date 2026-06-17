@@ -116,6 +116,7 @@ fun DriverHomeView(
     var isRequestingFineLocation by remember { mutableStateOf(false) }
     var isRequestingMotion by remember { mutableStateOf(false) }
     val subscriptionViewModel = remember { DriverSubscriptionViewModel() }
+    var showSubscriptionGate by remember { mutableStateOf(false) }
 
     val members by ShuttleStore.shared.members.collectAsStateWithLifecycle()
     val attendanceRevision by ShuttleStore.shared.attendanceRevision.collectAsStateWithLifecycle()
@@ -323,7 +324,14 @@ fun DriverHomeView(
                             locationAuthStatus = locationAuthStatus,
                             sentDelayMinutes = sentDelayMinutes,
                             isSendingDelayNotice = isSendingDelayNotice,
-                            onSendDelayNotice = viewModel::sendDelayNotice,
+                            isDelayNoticeLocked = !subscriptionViewModel.poolState.capabilities.canSendDelayNotice,
+                            onSendDelayNotice = { minutes ->
+                                if (!subscriptionViewModel.poolState.capabilities.canSendDelayNotice) {
+                                    showSubscriptionGate = true
+                                } else {
+                                    viewModel.sendDelayNotice(minutes)
+                                }
+                            },
                             onToggleTrip = {
                                 if (isTripActive) {
                                     viewModel.handleTripControlTap(true)
@@ -509,6 +517,23 @@ fun DriverHomeView(
                     onDismiss = { showLanguagePicker = false }
                 )
             }
+
+            AnimatedVisibility(
+                visible = showSubscriptionGate,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(6f)
+            ) {
+                SubscriptionGateOverlay(
+                    onDismiss = { showSubscriptionGate = false },
+                    onGoToSubscription = {
+                        showSubscriptionGate = false
+                        tabController.select(DriverHomeTab.Settings)
+                    }
+                )
+            }
         }
     }
 }
@@ -640,7 +665,6 @@ fun DriverSettingsTab(
         composable("subscription") {
             DriverSubscriptionScreen(
                 groupID = profile.primaryGroupID,
-                serviceCode = profile.groupCode,
                 viewModel = subscriptionViewModel,
                 onBack = { navController.popBackStack() }
             )

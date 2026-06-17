@@ -1,6 +1,10 @@
 package com.mikatechnology.BusTracker.ui.driver
 
-import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,169 +15,102 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mikatechnology.BusTracker.data.repository.DriverSubscriptionShare
+import androidx.compose.ui.zIndex
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.mikatechnology.BusTracker.base.PopupPresentation
+import com.mikatechnology.BusTracker.base.PopupStyle
 import com.mikatechnology.BusTracker.localization.L10n
-import com.mikatechnology.BusTracker.ui.settings.CopyServiceCode
 import com.mikatechnology.BusTracker.ui.settings.SettingsCardShape
-import com.mikatechnology.BusTracker.ui.settings.SettingsInfoRow
 import com.mikatechnology.BusTracker.ui.theme.NeonTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun DriverSubscriptionScreen(
     groupID: String,
-    serviceCode: String,
     viewModel: DriverSubscriptionViewModel,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val renewalUrl = DriverSubscriptionShare.renewalUrl(serviceCode)
+    val navController = rememberNavController()
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(groupID) {
+        viewModel.load(groupID)
+    }
+
+    LaunchedEffect(viewModel.toast?.id) {
+        if (viewModel.toast != null) {
+            delay(3000)
+            viewModel.clearToast()
+        }
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(NeonTheme.Background)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+        NavHost(
+            navController = navController,
+            startDestination = "subscription_main",
+            modifier = Modifier.fillMaxSize()
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SubscriptionBackButton(onClick = onBack)
-                Text(
-                    text = L10n.subscription,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NeonTheme.OnSurface
+            composable("subscription_main") {
+                SubscriptionMainContent(
+                    groupID = groupID,
+                    viewModel = viewModel,
+                    onBack = onBack,
+                    onShowAllContributions = { navController.navigate("pool_contribution_history") }
                 )
             }
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = L10n.subscriptionSectionTitle.uppercase(),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp,
-                    color = NeonTheme.Primary
-                )
-                Text(
-                    text = if (viewModel.subscription.isActive) {
-                        L10n.subscriptionActiveDescription
-                    } else {
-                        L10n.subscriptionInactiveDescription
-                    },
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = NeonTheme.OnSurfaceVariant
-                )
-                if (!viewModel.subscription.isActive) {
-                    Text(
-                        text = L10n.subscriptionBossPaymentHint,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = NeonTheme.Outline
-                    )
-                } else {
-                    viewModel.expiringSoonMessage?.let { message ->
-                        SubscriptionExpiringSoonBanner(message = message)
-                    }
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SettingsInfoRow(
-                    title = L10n.subscriptionStartDate,
-                    value = viewModel.startDateText
-                )
-                SettingsInfoRow(
-                    title = L10n.subscriptionEndDate,
-                    value = viewModel.endDateText
+            composable("pool_contribution_history") {
+                PoolContributionHistoryListScreen(
+                    items = viewModel.contributionHistory,
+                    onBack = { navController.popBackStack() }
                 )
             }
+        }
 
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(
-                    text = L10n.subscriptionPaymentLinkTitle.uppercase(),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp,
-                    color = NeonTheme.Primary
+        AnimatedVisibility(
+            visible = viewModel.toast != null,
+            enter = slideInVertically { -it } + fadeIn(),
+            exit = slideOutVertically { -it } + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 8.dp)
+                .zIndex(1f)
+        ) {
+            viewModel.toast?.let { toast ->
+                SubscriptionToastBanner(
+                    popup = toast,
+                    onDismiss = viewModel::clearToast
                 )
-
-                Text(
-                    text = L10n.subscriptionRenewalHint,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = NeonTheme.OnSurfaceVariant
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    SubscriptionLinkActionButton(
-                        title = L10n.share,
-                        icon = Icons.Default.Share,
-                        accent = NeonTheme.Primary,
-                        filled = true,
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, DriverSubscriptionShare.shareMessage(serviceCode))
-                            }
-                            context.startActivity(Intent.createChooser(sendIntent, null))
-                        }
-                    )
-                    SubscriptionLinkActionButton(
-                        title = L10n.copy,
-                        icon = Icons.Default.ContentCopy,
-                        accent = NeonTheme.OnSurfaceVariant,
-                        filled = false,
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            val copied = CopyServiceCode.copyPlainText(context, renewalUrl)
-                            CopyServiceCode.showPlainCopyResult(context, copied, L10n.subscriptionLinkCopied)
-                        }
-                    )
-                }
             }
-
-            Text(
-                text = L10n.subscriptionPaymentHint,
-                modifier = Modifier.fillMaxWidth(),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = NeonTheme.Outline,
-                textAlign = TextAlign.Center
-            )
         }
 
         if (viewModel.isLoading) {
@@ -182,38 +119,257 @@ fun DriverSubscriptionScreen(
                 color = NeonTheme.Secondary
             )
         }
+
+        AnimatedVisibility(
+            visible = viewModel.pendingMembershipMode != null,
+            enter = fadeIn() + slideInVertically { it },
+            exit = fadeOut() + slideOutVertically { it },
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(3f)
+        ) {
+            val mode = viewModel.pendingMembershipMode ?: return@AnimatedVisibility
+            Box(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.55f))
+                        .clickable { viewModel.dismissMembershipPurchase() }
+                )
+                PoolMembershipPurchaseBottomSheet(
+                    mode = mode,
+                    isPurchasing = viewModel.isPurchasingMembership,
+                    errorMessage = viewModel.membershipPurchaseError,
+                    onConfirm = {
+                        scope.launch {
+                            viewModel.confirmMembershipPurchase(mode, groupID)
+                        }
+                    },
+                    onDismiss = viewModel::dismissMembershipPurchase,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun SubscriptionLinkActionButton(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    accent: androidx.compose.ui.graphics.Color,
-    filled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+private fun SubscriptionMainContent(
+    groupID: String,
+    viewModel: DriverSubscriptionViewModel,
+    onBack: () -> Unit,
+    onShowAllContributions: () -> Unit
 ) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        SubscriptionTopBar(onBack = onBack)
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            SubscriptionTitleSection()
+            SubscriptionStatusSection(viewModel = viewModel)
+            SubscriptionDatesSection(viewModel = viewModel)
+            PoolBalanceSection(poolCollected = viewModel.poolState.poolCollected)
+            PoolPaymentScreen(
+                groupID = groupID,
+                viewModel = viewModel,
+                onShowAllContributions = onShowAllContributions
+            )
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionTopBar(onBack: () -> Unit) {
     Row(
-        modifier = modifier
-            .clip(SettingsCardShape)
-            .background(if (filled) NeonTheme.Primary.copy(alpha = 0.1f) else NeonTheme.SurfaceContainer)
-            .border(1.dp, accent.copy(alpha = if (filled) 0.4f else 0.3f), SettingsCardShape)
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(NeonTheme.Surface.copy(alpha = 0.8f))
+            .padding(horizontal = 16.dp)
+            .height(56.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
-        Spacer(modifier = Modifier.padding(horizontal = 4.dp))
+        SubscriptionBackButton(onClick = onBack)
+        Spacer(modifier = Modifier.weight(1f))
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(NeonTheme.Primary.copy(alpha = 0.2f))
+    )
+}
+
+@Composable
+private fun SubscriptionTitleSection() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = L10n.subscription,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 1.sp,
+            color = NeonTheme.OnSurface
+        )
+        Box(
+            modifier = Modifier
+                .width(48.dp)
+                .height(4.dp)
+                .background(NeonTheme.Primary)
+        )
+    }
+}
+
+@Composable
+private fun SubscriptionStatusSection(viewModel: DriverSubscriptionViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        viewModel.expiringSoonMessage?.let { message ->
+            SubscriptionExpiringSoonBanner(
+                message = message,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+        }
+
+        val description = when {
+            viewModel.poolState.hasFullFeatures -> L10n.subscriptionActiveDescription
+            else -> L10n.subscriptionInactiveDescription
+        }
+
+        Text(
+            text = description,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = NeonTheme.OnSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+    }
+}
+
+@Composable
+private fun SubscriptionDatesSection(viewModel: DriverSubscriptionViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SubscriptionSectionHeader(L10n.subscriptionSectionTitle)
+        Column(
+            modifier = Modifier.padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            MembershipDateRow(L10n.subscriptionStartDate, viewModel.startDateText)
+            MembershipDateRow(L10n.subscriptionEndDate, viewModel.endDateText)
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionSectionHeader(title: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(14.dp)
+                .background(NeonTheme.Primary)
+        )
+        Text(
+            text = title.uppercase(),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.5.sp,
+            color = NeonTheme.OnSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun MembershipDateRow(title: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(NeonTheme.SurfaceContainer)
+            .border(1.dp, NeonTheme.OnSurface.copy(alpha = 0.06f))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(
             text = title.uppercase(),
             fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.5.sp,
-            color = accent
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 1.2.sp,
+            color = NeonTheme.OnSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = NeonTheme.OnSurface
         )
     }
+}
+
+@Composable
+private fun SubscriptionToastBanner(
+    popup: PopupPresentation,
+    onDismiss: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(SettingsCardShape)
+            .background(NeonTheme.SurfaceContainer.copy(alpha = 0.95f))
+            .border(1.dp, NeonTheme.Primary.copy(alpha = 0.35f), SettingsCardShape)
+            .clickable(onClick = onDismiss)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        PopupIcon(popup.style)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 10.dp)
+        ) {
+            if (popup.title.isNotBlank()) {
+                Text(
+                    text = popup.title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = NeonTheme.OnSurface
+                )
+            }
+            Text(
+                text = popup.message,
+                fontSize = 12.sp,
+                color = NeonTheme.OnSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun PopupIcon(style: PopupStyle) {
+    val tint = when (style) {
+        PopupStyle.Success -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
+        else -> NeonTheme.Primary
+    }
+    Icon(
+        imageVector = Icons.Default.CheckCircle,
+        contentDescription = null,
+        tint = tint
+    )
 }
 
 @Composable

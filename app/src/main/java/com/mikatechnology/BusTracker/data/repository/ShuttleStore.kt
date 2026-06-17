@@ -48,6 +48,10 @@ class ShuttleStore private constructor() {
     private val _members = MutableStateFlow<List<ShuttleMember>>(emptyList())
     val members: StateFlow<List<ShuttleMember>> = _members.asStateFlow()
 
+    /// Servis kodundaki yolcular + sürücü (her serviste 1 sürücü).
+    val serviceMemberCount: Int
+        get() = _members.value.count { it.role == MemberRole.Passenger } + 1
+
     private val _driverLocation = MutableStateFlow<DriverLocation?>(null)
     val driverLocation: StateFlow<DriverLocation?> = _driverLocation.asStateFlow()
 

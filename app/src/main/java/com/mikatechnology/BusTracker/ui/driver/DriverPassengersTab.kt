@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,8 +37,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
@@ -73,6 +76,7 @@ fun DriverPassengersTab(
     onCopyCode: () -> Unit,
     sentDelayMinutes: Int? = null,
     isSendingDelayNotice: Boolean = false,
+    isDelayNoticeLocked: Boolean = false,
     onSendDelayNotice: (Int) -> Unit = {},
     onRequestForegroundPermission: () -> Unit = {},
     onRequestAlwaysPermission: () -> Unit = {},
@@ -137,6 +141,7 @@ fun DriverPassengersTab(
             onToggleTrip = onToggleTrip,
             sentDelayMinutes = sentDelayMinutes,
             isSendingDelayNotice = isSendingDelayNotice,
+            isDelayLocked = isDelayNoticeLocked,
             onSendDelayNotice = onSendDelayNotice
         )
 
@@ -277,6 +282,7 @@ private fun TripControlSection(
     onToggleTrip: () -> Unit,
     sentDelayMinutes: Int? = null,
     isSendingDelayNotice: Boolean = false,
+    isDelayLocked: Boolean = false,
     onSendDelayNotice: (Int) -> Unit = {}
 ) {
     val accent = if (isTripActive) DangerColor else NeonTheme.Primary
@@ -324,6 +330,7 @@ private fun TripControlSection(
                 sentMinutes = sentDelayMinutes,
                 isSending = isSendingDelayNotice,
                 chipsDisabled = chipsDisabled,
+                isLocked = isDelayLocked,
                 onSelectMinutes = onSendDelayNotice
             )
         }
@@ -351,38 +358,57 @@ private fun DriverDelayNoticeSection(
     sentMinutes: Int?,
     isSending: Boolean,
     chipsDisabled: Boolean,
+    isLocked: Boolean = false,
     onSelectMinutes: (Int) -> Unit
 ) {
+    val effectiveDisabled = chipsDisabled || isLocked
+    
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = L10n.driverDelaySectionTitle,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 2.sp,
-            color = NeonTheme.Secondary,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = L10n.driverDelaySectionTitle,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+                color = if (isLocked) NeonTheme.Outline else NeonTheme.Secondary
+            )
+            if (isLocked) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = NeonTheme.Outline,
+                    modifier = Modifier.size(12.dp)
+                )
+            }
+            Spacer(Modifier.weight(1f))
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .alpha(if (isLocked) 0.5f else 1f),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             for (minutes in ShuttleStore.DRIVER_DELAY_MINUTE_OPTIONS) {
-                val chipAccent = if (chipsDisabled) NeonTheme.Outline else NeonTheme.OnSurface
+                val chipAccent = if (effectiveDisabled) NeonTheme.Outline else NeonTheme.OnSurface
                 Text(
                     text = L10n.driverDelayChip(minutes),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = chipAccent.copy(alpha = if (chipsDisabled) 0.55f else 1f),
+                    color = chipAccent.copy(alpha = if (effectiveDisabled) 0.55f else 1f),
                     modifier = Modifier
                         .weight(1f)
-                        .clickable(enabled = !chipsDisabled, onClick = { onSelectMinutes(minutes) })
+                        .clickable(enabled = true, onClick = { onSelectMinutes(minutes) })
                         .background(
-                            NeonTheme.SurfaceContainer.copy(alpha = if (chipsDisabled) 0.35f else 0.7f)
+                            NeonTheme.SurfaceContainer.copy(alpha = if (effectiveDisabled) 0.35f else 0.7f)
                         )
                         .border(
                             1.dp,
-                            if (chipsDisabled) NeonTheme.Outline.copy(alpha = 0.35f)
+                            if (effectiveDisabled) NeonTheme.Outline.copy(alpha = 0.35f)
                             else NeonTheme.Secondary.copy(alpha = 0.5f)
                         )
                         .padding(vertical = 10.dp),
@@ -390,17 +416,17 @@ private fun DriverDelayNoticeSection(
                 )
             }
         }
-        if (sentMinutes == null && !isSending) {
-            Text(
-                text = L10n.driverDelaySectionHint,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 1.sp,
-                color = NeonTheme.Outline,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
-        }
+        Text(
+            text = if (isLocked) L10n.featureRequiresSubscription
+                   else if (sentMinutes == null && !isSending) L10n.driverDelaySectionHint
+                   else "",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 1.sp,
+            color = NeonTheme.Outline,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
     }
 }
 

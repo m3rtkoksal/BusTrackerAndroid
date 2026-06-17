@@ -45,8 +45,8 @@ android {
         applicationId = "com.mikatechnology.BusTracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 21
-        versionName = "1.3.3"
+        versionCode = 23
+        versionName = "1.4.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -114,6 +114,8 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.functions)
+    implementation(libs.billing.ktx)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

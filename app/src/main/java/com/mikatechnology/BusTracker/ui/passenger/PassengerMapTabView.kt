@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
@@ -89,6 +90,7 @@ fun PassengerMapTabView(
     onAttendanceClick: () -> Unit,
     isTripActive: Boolean,
     isSaving: Boolean,
+    isPickupLocked: Boolean = false,
     onMapClick: (LatLng) -> Unit,
     onSavePickup: () -> Unit,
     modifier: Modifier = Modifier
@@ -296,6 +298,7 @@ fun PassengerMapTabView(
                     SavePickupButton(
                         isSaving = isSaving,
                         enabled = draftCoordinate != null,
+                        isLocked = isPickupLocked,
                         onClick = onSavePickup
                     )
                 }
@@ -482,21 +485,25 @@ private fun attendanceMapAccent(status: AttendanceStatus): Color = when (status)
 private fun SavePickupButton(
     isSaving: Boolean,
     enabled: Boolean,
+    isLocked: Boolean = false,
     onClick: () -> Unit
 ) {
     val canTap = enabled && !isSaving
+    val contentColor = if (isLocked) NeonTheme.OnSurfaceVariant else NeonTheme.MapSaveAction
+    val alpha = if (isLocked) 0.5f else if (canTap) 1f else 0.45f
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .alpha(if (canTap) 1f else 0.45f)
+            .alpha(alpha)
             .clip(MapUiShape)
             .background(NeonTheme.SurfaceContainerHigh.copy(alpha = 0.9f))
             .border(
                 width = 1.dp,
-                color = NeonTheme.MapSaveAction.copy(alpha = 0.5f),
+                color = (if (isLocked) NeonTheme.Outline else NeonTheme.MapSaveAction).copy(alpha = 0.5f),
                 shape = MapUiShape
             )
-            .clickable(enabled = canTap) { onClick() }
+            .clickable(enabled = canTap || isLocked) { onClick() }
             .padding(vertical = 14.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
@@ -508,20 +515,29 @@ private fun SavePickupButton(
                 modifier = Modifier.size(20.dp)
             )
         } else {
+            if (isLocked) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(Modifier.size(6.dp))
+            }
             Icon(
                 imageVector = Icons.Default.LocationOn,
                 contentDescription = null,
-                tint = NeonTheme.MapSaveAction,
+                tint = contentColor,
                 modifier = Modifier.size(18.dp)
             )
             Text(
                 text = L10n.savePickupPoint,
                 style = TextStyle(
-                    color = NeonTheme.MapSaveAction,
+                    color = contentColor,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 1.sp,
-                    shadow = Shadow(
+                    shadow = if (isLocked) null else Shadow(
                         color = NeonTheme.MapSaveAction.copy(alpha = 0.55f),
                         offset = Offset.Zero,
                         blurRadius = 8f

@@ -90,51 +90,119 @@ object L10n {
     val settingsYourName get() = t("Adınız", "Your Name")
     val settingsShuttle get() = t("Servis", "Shuttle")
 
-    val subscription get() = t("Üyelik", "Membership")
-    val subscriptionSectionTitle get() = t("Üyelik durumu", "Membership status")
-    val subscriptionStartDate get() = t("Üyelik başlangıç", "Membership start")
-    val subscriptionEndDate get() = t("Üyelik bitiş", "Membership end")
-    val subscriptionInactive get() = t("Kapalı", "Inactive")
+    val subscription get() = t("Servis Üyeliği", "Service Membership")
+    val subscriptionSectionTitle get() = t("Servis durumu", "Service status")
+    val subscriptionStartDate get() = t("Aktif başlangıç", "Active from")
+    val subscriptionEndDate get() = t("Aktif bitiş", "Active until")
+    val subscriptionInactive get() = t("Pasif", "Inactive")
     val subscriptionActiveDescription get() = t(
-        "Üyeliğiniz aktif. Bitiş tarihine kadar sürücü özelliklerini kullanabilirsiniz.",
-        "Your membership is active. You can use driver features until the end date."
+        "Servis kodunuz aktif. Bitiş tarihine kadar canlı takip kullanılabilir.",
+        "Your shuttle code is active. Live tracking is available until the end date."
     )
     val subscriptionInactiveDescription get() = t(
-        "Şu an aktif üyelik görünmüyor.",
-        "No active membership at the moment."
+        "Servis kodu pasif. Havuz hedefi tamamlanınca yeniden açılır.",
+        "Shuttle code is inactive. It reopens when the pool target is met."
     )
-    val subscriptionPaymentLinkTitle get() = t("Üyeliği devam ettir", "Continue membership")
-    val subscriptionRenewalHint get() = t(
-        "Linki kuruma iletebilir, paylaşabilir veya kopyalayabilirsiniz.",
-        "You can share or copy the link for your organization."
+    val subscriptionGraceDescription get() = t(
+        "Üyelik süresi doldu; ek süre içindesiniz. Havuzu yenileyin.",
+        "Membership ended; you are in the grace period. Renew the pool."
     )
-    val subscriptionRenewalOpen get() = t("Web sayfasını aç", "Open website")
-    val subscriptionBossPaymentHint get() = t(
-        "Devam etmek için linki bağlı olduğunuz kuruma iletebilirsiniz.",
-        "You can share the link with your organization to continue."
+    val poolPaymentTitle get() = t("Üyelik bedeli", "Membership fee")
+    val poolModeWeekly get() = t("Haftalık", "Weekly")
+    val poolModeMonthly get() = t("Aylık", "Monthly")
+    val poolModeAnnual get() = t("Yıllık", "Annual")
+    val poolBalanceSectionTitle get() = t("Havuz bakiyesi", "Pool balance")
+    val poolBalance get() = t("Havuz bakiyesi", "Pool balance")
+    val poolTargetAmount get() = t("Hedef tutar", "Target amount")
+    val poolPaidBalance get() = t("Ödenen", "Paid")
+    val poolRemainingBalance get() = t("Eksik bakiye", "Remaining")
+    val poolSelectAmount get() = t("Havuza bakiye yükle", "Add pool balance")
+    val poolPayButton get() = t("Google Play ile öde", "Pay with Google Play")
+    fun poolPayButtonWithPrice(price: String) = t(
+        "Google Play ile öde — $price",
+        "Pay with Google Play — $price"
     )
-    fun subscriptionRenewalShareMessage(url: String) = t(
-        "Shuttle Live üyelik devamı. Servis kodunuz linkte hazır:\n$url",
-        "Shuttle Live membership continuation. Your service code is in the link:\n$url"
+    val poolChargeMayIncludeTax get() = t(
+        "Google Play ödeme ekranında nihai tutar (vergi dahil) gösterilir.",
+        "The final amount (including tax) is shown on the Google Play payment screen."
     )
-    val subscriptionLinkCopied get() = t("Link kopyalandı.", "Link copied.")
+    val poolPlayPriceMismatch get() = t(
+        "Play Store fiyatı havuz tutarıyla uyuşmuyor. Play Console'da her seçenek için Türkiye fiyatını vergi dahil tam tutar yapın (ör. tier-250 → 250,00 TRY).",
+        "Play Store price doesn't match the pool amount. In Play Console, set each option's Turkey price as the exact tax-inclusive amount (e.g. tier-250 → 250.00 TRY)."
+    )
+    val poolRefreshPrices get() = t("Play fiyatlarını yenile", "Refresh Play prices")
+    val poolCompleteMessage get() = t(
+        "Bu dönem için havuz tamamlandı.",
+        "Pool complete for this period."
+    )
+    fun poolPurchaseMembershipConfirm(modeTitle: String) = t(
+        "Bu ${modeTitle.lowercase()} paketi almak ister misiniz?",
+        "Would you like to purchase the ${modeTitle.lowercase()} package?"
+    )
+    val poolInsufficientBalance get() = t("Havuz bakiyeniz yetersiz.", "Your pool balance is insufficient.")
+    val poolMembershipPurchaseSuccess get() = t(
+        "Üyelik havuz bakiyesinden alındı.",
+        "Membership purchased from pool balance."
+    )
+    val poolContributionHistoryTitle get() = t("Ödeme geçmişi", "Payment history")
+    val poolContributionHistoryEmpty get() = t(
+        "Henüz havuza ödeme yapılmadı.",
+        "No pool payments yet."
+    )
+    val poolShowMoreContributions get() = t("Daha fazla göster", "Show more")
+    val yes get() = t("Evet", "Yes")
+    val no get() = t("Hayır", "No")
+    fun poolWeeklyHintParts(memberCount: Int) = com.mikatechnology.BusTracker.data.model.PoolModeHintParts(
+        leading = t("", "Weekly fee for "),
+        highlighted = t("$memberCount kişi", "$memberCount members"),
+        trailing = t("nin toplaması gereken haftalık bedel.", " to collect.")
+    )
+    fun poolMonthlyHintParts(memberCount: Int) = com.mikatechnology.BusTracker.data.model.PoolModeHintParts(
+        leading = t("", "Monthly fee for "),
+        highlighted = t("$memberCount kişi", "$memberCount members"),
+        trailing = t("nin toplaması gereken aylık bedel.", " to collect.")
+    )
+    fun poolAnnualHintParts(memberCount: Int) = com.mikatechnology.BusTracker.data.model.PoolModeHintParts(
+        leading = t("", "Annual fee for "),
+        highlighted = t("$memberCount kişi", "$memberCount members"),
+        trailing = t("nin toplaması gereken yıllık bedel.", " to collect.")
+    )
+    fun poolCurrency(amount: Int) = t("$amount TL", "$amount TRY")
+    val poolPurchaseProductUnavailable get() = t("Ürün şu an yüklenemedi.", "Product could not be loaded.")
+    val poolPurchaseBillingUnavailable get() = t(
+        "Google Play ödeme şu an kullanılamıyor. Uygulamayı Play Store'dan kurduğunuzdan ve ödeme profilinizin aktif olduğundan emin olun.",
+        "Google Play billing is unavailable. Install the app from Play Store and ensure your payments profile is active."
+    )
+    val poolPurchasePlaySheetFailed get() = t(
+        "Google Play ödeme ekranı açılamadı.",
+        "Could not open the Google Play payment screen."
+    )
+    val poolPurchasePending get() = t("Ödeme onay bekliyor.", "Payment is pending approval.")
+    val poolPurchaseVerificationFailed get() = t("Ödeme doğrulanamadı.", "Payment could not be verified.")
+    val poolPurchaseBackendFailed get() = t("Ödeme kaydedilemedi.", "Payment could not be recorded.")
+    val poolPurchaseSuccess get() = t("Ödemeniz kaydedildi.", "Your payment was recorded.")
+    val poolMissingGroup get() = t("Servis grubu bulunamadı.", "Shuttle group not found.")
+    val poolNotGroupMember get() = t("Bu servisin üyesi değilsiniz.", "You are not a member of this shuttle group.")
+    val poolFunctionNotDeployed get() = t(
+        "Ödeme sunucusu hazır değil. Lütfen biraz sonra tekrar deneyin.",
+        "Payment server is not ready. Please try again shortly."
+    )
     val subscriptionPaymentHint get() = t(
-        "Kurumunuz işlemi tamamladığında tarihler burada güncellenir.",
-        "Dates will update here once your organization completes the process."
+        "Ödeme sonrası bakiye ve tarihler birkaç saniye içinde güncellenir.",
+        "Balance and dates update within a few seconds after payment."
     )
-    val subscriptionPayment get() = t("Üyelik devamı", "Membership")
     fun subscriptionExpiringSoonMessage(endDate: String, daysRemaining: Int) = when (daysRemaining) {
         0 -> t(
-            "Üyeliğiniz bugün ($endDate) sona eriyor. Devam etmek için linki kuruma iletebilirsiniz.",
-            "Your membership ends today ($endDate). Share the link with your organization to continue."
+            "Servis üyeliği bugün ($endDate) bitiyor. Havuzu yenileyin.",
+            "Service membership ends today ($endDate). Renew the pool."
         )
         1 -> t(
-            "Üyeliğiniz yarın ($endDate) sona eriyor. Devam etmek için linki kuruma iletebilirsiniz.",
-            "Your membership ends tomorrow ($endDate). Share the link with your organization to continue."
+            "Servis üyeliği yarın ($endDate) bitiyor. Havuzu yenileyin.",
+            "Service membership ends tomorrow ($endDate). Renew the pool."
         )
         else -> t(
-            "Üyeliğiniz $endDate tarihinde sona eriyor ($daysRemaining gün kaldı). Devam etmek için linki kuruma iletebilirsiniz.",
-            "Your membership ends on $endDate ($daysRemaining days left). Share the link with your organization to continue."
+            "Servis üyeliği $endDate tarihinde bitiyor ($daysRemaining gün kaldı). Havuzu yenileyin.",
+            "Service membership ends on $endDate ($daysRemaining days left). Renew the pool."
         )
     }
     fun subscriptionExpiringSoonSubtitle(daysRemaining: Int) = when (daysRemaining) {
@@ -143,6 +211,25 @@ object L10n {
         else -> t("$daysRemaining gün kaldı", "$daysRemaining days left")
     }
     val close get() = t("Kapat", "Close")
+
+    // Subscription Gating
+    val featureRequiresSubscription get() = t(
+        "Bu özellik aktif üyelik gerektirir.",
+        "This feature requires an active subscription."
+    )
+    val subscriptionExpiringSoonBanner get() = t(
+        "Üyelik süresi doluyor — havuzdan yenileyin",
+        "Subscription expiring — renew from pool"
+    )
+    val subscriptionExpiredTitle get() = t(
+        "Üyelik Süresi Doldu",
+        "Subscription Expired"
+    )
+    val subscriptionExpiredMessage get() = t(
+        "Bu özelliği kullanmak için üyeliğinizi yenilemeniz gerekiyor.",
+        "You need to renew your subscription to use this feature."
+    )
+    val goToSubscription get() = t("Üyelik Sayfası", "Subscription Page")
 
     val holidayModeTitle get() = t("Tatil Modu", "Holiday Mode")
     val holidayModeOff get() = t("Kapalı", "Off")

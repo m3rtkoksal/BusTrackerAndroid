@@ -191,7 +191,9 @@ class RegistrationFormViewModel(
                 UserSessionRepository.save(context, profile)
                 val groupID = profile.primaryGroupID.trim()
                 if (groupID.isNotEmpty()) {
-                    NotificationService.syncTokenForProfile(context, groupID, profile.memberID)
+                    runCatching {
+                        NotificationService.syncTokenForProfile(context, groupID, profile.memberID)
+                    }
                 }
                 accountCreated = true
                 showSuccess(
@@ -212,9 +214,7 @@ class RegistrationFormViewModel(
                 }
             } finally {
                 AuthRepository.setCompletingRegistration(false)
-                if (!accountCreated) {
-                    setLoading(false)
-                }
+                setLoading(false)
             }
         }
     }

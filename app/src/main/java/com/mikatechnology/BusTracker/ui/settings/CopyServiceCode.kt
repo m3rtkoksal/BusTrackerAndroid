@@ -14,7 +14,7 @@ object CopyServiceCode {
     fun copyPlainText(
         context: Context,
         text: String,
-        label: String = L10n.subscriptionPaymentLinkTitle
+        label: String = L10n.settingsServiceCode
     ): Boolean {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return false

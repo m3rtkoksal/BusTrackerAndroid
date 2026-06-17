@@ -3,6 +3,7 @@ package com.mikatechnology.BusTracker.data.repository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.mikatechnology.BusTracker.data.model.MemberRole
 import com.mikatechnology.BusTracker.data.model.UserProfile
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,8 +29,11 @@ class ShuttleRepository {
     suspend fun fetchUserProfile(userID: String): UserProfile? {
         val doc = db.collection("users").document(userID).get().await()
         val data = doc.data ?: return null
-        return userProfileFrom(data, userID)
+        val authFallback = AuthRepository.resolveAuthUserId() ?: userID
+        return userProfileFrom(data, userID, authFallback)
     }
+
+    private val functions = com.google.firebase.functions.FirebaseFunctions.getInstance("europe-west1")
 
     suspend fun createGroup(name: String, driverName: String): UserProfile {
         val user = auth.currentUser ?: throw ShuttleError.NotAuthenticated()
@@ -41,42 +45,33 @@ class ShuttleRepository {
         if (trimmedName.isEmpty()) throw ShuttleError.InvalidInput("Servis adı boş olamaz.")
         if (trimmedDriver.isEmpty()) throw ShuttleError.InvalidInput("Adınız boş olamaz.")
 
-        if (fetchUserProfile(user.uid) != null) {
-            throw ShuttleError.AlreadyInGroup()
-        }
-
         _isLoading.value = true
         try {
-            val groupID = UUID.randomUUID().toString()
-            val memberID = user.uid
-            val code = generateGroupCode()
-
-            val groupRef = db.collection("groups").document(groupID)
-            groupRef.set(
+            val callable = functions.getHttpsCallable("createDriverGroup")
+            val result = callable.call(
                 mapOf(
-                    "name" to trimmedName,
-                    "code" to code,
-                    "driverMemberID" to memberID,
-                    "createdAt" to FieldValue.serverTimestamp()
+                    "serviceName" to trimmedName,
+                    "driverName" to trimmedDriver
                 )
             ).await()
 
-            groupRef.collection("members").document(memberID).set(
-                mapOf(
-                    "userID" to user.uid,
-                    "name" to trimmedDriver,
-                    "googleUserID" to authUserId,
-                    "role" to MemberRole.Driver.rawValue,
-                    "joinedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            @Suppress("UNCHECKED_CAST")
+            val data = result.data as? Map<String, Any>
+                ?: throw ShuttleError.InvalidInput("Sunucu yanıtı geçersiz.")
+
+            val groupID = data["groupId"] as? String
+                ?: throw ShuttleError.InvalidInput("Sunucu yanıtı geçersiz.")
+            val code = data["code"] as? String
+                ?: throw ShuttleError.InvalidInput("Sunucu yanıtı geçersiz.")
 
             val profile = UserProfile(
                 userID = user.uid,
-                memberID = memberID,
+                memberID = user.uid,
                 name = trimmedDriver,
                 authUserId = authUserId,
                 role = MemberRole.Driver,
+                groupIDs = listOf(groupID),
+                activeGroupIDs = listOf(groupID),
                 groupID = groupID,
                 groupCode = code,
                 groupName = trimmedName
@@ -84,6 +79,12 @@ class ShuttleRepository {
 
             saveUserDocument(profile)
             return profile
+        } catch (error: com.google.firebase.functions.FirebaseFunctionsException) {
+            when (error.code) {
+                com.google.firebase.functions.FirebaseFunctionsException.Code.ALREADY_EXISTS ->
+                    throw ShuttleError.AlreadyInGroup()
+                else -> throw ShuttleError.InvalidInput(error.message ?: "Servis oluşturulamadı.")
+            }
         } finally {
             _isLoading.value = false
         }
@@ -284,12 +285,16 @@ class ShuttleRepository {
         if (profile.activeGroupIDs.isNotEmpty()) {
             payload["activeGroupIDs"] = profile.activeGroupIDs
         }
-        db.collection("users").document(profile.userID).set(payload).await()
+        db.collection("users").document(profile.userID).set(payload, SetOptions.merge()).await()
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun userProfileFrom(data: Map<String, Any>, userID: String): UserProfile? {
-        val memberID = data["memberID"] as? String ?: return null
+    private fun userProfileFrom(
+        data: Map<String, Any>,
+        userID: String,
+        authUserIdFallback: String = userID
+    ): UserProfile? {
+        val memberID = data["memberID"] as? String ?: userID
         val name = data["name"] as? String ?: return null
         val roleRaw = data["role"] as? String ?: return null
         val role = MemberRole.entries.firstOrNull { it.rawValue == roleRaw } ?: return null
@@ -297,7 +302,7 @@ class ShuttleRepository {
         val authUserId = (data["googleUserID"] as? String)
             ?: (data["appleUserID"] as? String)
             ?: (data["phoneNumber"] as? String)?.let { "legacy:$it" }
-            ?: return null
+            ?: authUserIdFallback
 
         val groupIDs: List<String>
         val activeGroupIDs: List<String>

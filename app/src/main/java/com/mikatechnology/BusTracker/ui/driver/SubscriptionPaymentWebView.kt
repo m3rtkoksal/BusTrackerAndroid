@@ -43,7 +43,7 @@ fun SubscriptionPaymentWebView(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = L10n.subscriptionPayment,
+                    text = L10n.subscription,
                     modifier = Modifier
                         .weight(1f)
                         .padding(start = 8.dp),

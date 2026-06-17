@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -44,17 +45,19 @@ fun HolidayModeServiceCard(
     isActive: Boolean,
     subtitle: String,
     detailLine: String,
+    isLocked: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val shape = RectangleShape
     val gradientAlpha = if (isActive) 0.12f else 0.06f
+    val alpha = if (isLocked) 0.5f else 1f
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                elevation = if (isActive) 10.dp else 4.dp,
+                elevation = if (isActive && !isLocked) 10.dp else 4.dp,
                 spotColor = HolidayAccent.copy(alpha = if (isActive) 0.18f else 0.08f)
             )
             .clip(shape)
@@ -63,7 +66,7 @@ fun HolidayModeServiceCard(
                 drawRect(
                     brush = Brush.linearGradient(
                         colors = listOf(
-                            HolidayAccent.copy(alpha = gradientAlpha),
+                            HolidayAccent.copy(alpha = gradientAlpha * alpha),
                             Color.Transparent
                         ),
                         start = Offset.Zero,
@@ -137,12 +140,21 @@ fun HolidayModeServiceCard(
             )
         }
 
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = HolidayAccent.copy(alpha = 0.85f),
-            modifier = Modifier.padding(top = 4.dp)
-        )
+        if (isLocked) {
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = null,
+                tint = NeonTheme.OnSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp).size(16.dp)
+            )
+        } else {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = HolidayAccent.copy(alpha = 0.85f),
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
     }
 }
 
