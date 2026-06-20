@@ -1,0 +1,16 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.mikatechnology.BusTracker",
+      "sha256_cert_fingerprints": [
+        "FF:50:E1:B9:CF:BA:51:98:ED:64:6C:AB:E9:2E:65:1D:77:14:9C:A0:26:E2:D3:50:7B:F4:0A:19:F1:64:93:A1",
+        "8E:7D:D4:9D:2C:59:94:E5:4B:01:7A:79:51:4A:DA:37:23:EF:3A:88:07:38:95:8B:04:AE:13:68:4A:89:BB:B7"
+      ]
+    }
+  }
+]
